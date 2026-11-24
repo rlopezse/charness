@@ -9,7 +9,7 @@ npm install                 # Node >= 20; single pinned dependency: @anthropic-a
 npm start                   # real backend; prints http://127.0.0.1:4317/?token=... (open that link once)
 npm run mock                # fake backend, no network / API key needed (node server.mjs --mock)
 npm test                    # node test/smoke.mjs — end-to-end checks run against a --mock server
-./scripts/make-mac-app.sh   # builds ~/Applications/Charness.app
+./scripts/make-mac-app.sh   # compiles mac/main.swift (swiftc) into ~/Applications/Charness.app
 ```
 
 There is no linter or build step, and no test runner: `test/smoke.mjs` is one script that spawns the server in mock mode (random port, temp `HARNESS_HOME`) and asserts on it, so it can't run a single test in isolation. Server flags/env vars (`--port`, `--rotate-token`, `--no-guard`, `HARNESS_ALLOW_HOSTS`, `HARNESS_PASS_ENV`, `HARNESS_ALLOW_FULL_ACCESS`, `HARNESS_HOME`, ...) are tabulated in `README.md`.

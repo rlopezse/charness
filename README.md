@@ -56,23 +56,25 @@ Add a project folder in the sidebar (type its path), press **+** for a thread, a
 ## Run it as a Mac app
 
 ```bash
+xcode-select --install             # once, if you don't have the Command Line Tools (for swiftc)
 ./scripts/make-mac-app.sh          # builds  ~/Applications/Charness.app
 ```
 
-Double-click the app: it starts the server and opens a window. **Cmd-Q (or Dock → Quit) stops the server.**
-Clicking the Dock icon again re-opens the window. The app points at this folder, so keep it where it is
+Double-click the app: it starts the server and shows the UI in its own native window. **Cmd-Q (or Dock → Quit)
+stops the server.** Closing the window keeps the server running; clicking the Dock icon brings the same window back. The app points at this folder, so keep it where it is
 (re-run the script if you move it). Logs: `~/.charness/server.log`.
 
 * **API key:** apps don't see what you `export` in Terminal. Store the key once in the Keychain instead
   (it asks you to type it; macOS may ask "Always Allow" the first time the app reads it):
   `security add-generic-password -a "$USER" -s charness -w`
   Or skip this if you're already logged in to Claude Code on the Mac.
-* **Window:** if Chrome, Brave, Edge or Chromium is installed, the app uses it in a window of its own with a
-  dedicated empty profile (`~/.charness/browser-profile`, sync and background networking off), so none of your
-  browser extensions can read your chats. Otherwise it opens your default browser.
+* **Window:** the app is a small native Swift program (`mac/main.swift`, AppKit + WKWebView, no third-party code).
+  It shows only this server; links in chats open in your default browser. No browser is launched, so no
+  extensions can read your chats and no extra tabs or windows pile up. Edit menu, ⌘R reload and ⌘= / ⌘- / ⌘0 zoom work.
+  Web Inspector, if you need it: `defaults write local.charness.app CharnessInspectable -bool true`.
 * The built-in Mac permission prompts (Documents, Desktop…) appear for folders you add as projects. That's macOS.
 * Only the Linux-testable parts (`scripts/launch.sh`: start/stop, port fallback, Node discovery, error messages)
-  were run by me; `osacompile`, Keychain and `open` run only on a Mac.
+  were run by me; the Swift app, `swiftc`, `codesign` and Keychain run only on a Mac.
 
 ## Settings (environment variables / flags)
 
@@ -99,6 +101,7 @@ lib/agent.mjs     Agent SDK bridge, env allow-list, mock     (~200)
 lib/guard.mjs     egress guard (CONNECT proxy)               (~95)
 lib/store.mjs     JSON persistence                           (~70)
 public/           index.html, app.js, md.js, reduce.js, style.css
-scripts/          launch.sh (start/stop for the app), make-mac-app.sh
+mac/main.swift    native macOS window (AppKit + WKWebView)    (~270)
+scripts/          launch.sh (start/stop for the app), make-mac-app.sh (compiles mac/main.swift)
 test/smoke.mjs    22 end-to-end checks in mock mode
 ```
