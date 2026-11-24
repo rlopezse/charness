@@ -31,3 +31,8 @@ Security posture is the product; preserve these invariants when changing code:
 - The git "Changes" panel runs read-only git with `fsmonitor` and external diff/textconv disabled.
 
 Adding behavior usually means touching a route in `server.mjs`, the matching UI code in `public/app.js`, and a check in `test/smoke.mjs` (mock mode only; the real SDK path is not covered by tests).
+
+## Working rules
+
+- Never suggest or offer to delete branches (local or remote). Only delete one if the user explicitly asks.
+- When the user says "reboot server" (or "restart the server"), stop the running server, start it again with `npm start`, then open the new URL (with token) in the browser. Don't ask first.
