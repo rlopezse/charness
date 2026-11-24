@@ -64,7 +64,6 @@ try {
   console.log('threads & permissions');
   assert.equal((await call('POST', '/api/projects', { path: path.join(tmp, 'missing') })).status, 400); ok('rejects non-folder');
   const p = (await call('POST', '/api/projects', { path: proj })).json;
-  assert.equal(p.trusted, false); ok('project added, untrusted by default');
   const t = (await call('POST', '/api/threads', { projectId: p.id })).json;
   assert.equal((await call('POST', `/api/threads/${t.id}/send`, { text: 'hello there' })).status, 202);
 

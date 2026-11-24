@@ -282,7 +282,7 @@ async function handle(req, res) {
       let real;
       try { real = fs.realpathSync(p); if (!fs.statSync(real).isDirectory()) throw new Error(); } catch { return fail(res, 400, `Not a folder: ${p}`); }
       if (store.state.projects.some((x) => x.path === real)) return fail(res, 409, 'Already added');
-      const project = { id: store.newId(), name: path.basename(real) || real, path: real, trusted: false };
+      const project = { id: store.newId(), name: path.basename(real) || real, path: real };
       store.state.projects.push(project);
       store.saveState();
       broadcast({ type: 'state' });
@@ -291,12 +291,6 @@ async function handle(req, res) {
     if ((m = /^\/api\/projects\/([0-9a-f]+)$/.exec(url.pathname))) {
       const project = projectById(m[1]);
       if (!project) return fail(res, 404, 'no such project');
-      if (method === 'PATCH') {
-        const body = await readBody(req);
-        if (typeof body.trusted === 'boolean') project.trusted = body.trusted;
-        store.saveState(); broadcast({ type: 'state' });
-        return json(res, 200, project);
-      }
       if (method === 'DELETE') {
         const ids = store.state.threads.filter((t) => t.projectId === project.id).map((t) => t.id);
         if (ids.some((id) => runs.has(id))) return fail(res, 409, 'A thread is still running');
@@ -312,7 +306,7 @@ async function handle(req, res) {
     if (method === 'POST' && url.pathname === '/api/threads') {
       const body = await readBody(req);
       if (!projectById(body.projectId)) return fail(res, 400, 'unknown project');
-      const t = { id: store.newId(), projectId: body.projectId, title: 'New thread', model: '', mode: 'ask', sessionId: null, cost: 0, createdAt: Date.now(), updatedAt: Date.now() };
+      const t = { id: store.newId(), projectId: body.projectId, title: 'New thread', model: 'claude-sonnet-5-5', mode: 'edits', sessionId: null, cost: 0, createdAt: Date.now(), updatedAt: Date.now() };
       store.state.threads.push(t);
       store.loadThread(t.id); store.saveMessages(t.id); store.saveState();
       broadcast({ type: 'state' });

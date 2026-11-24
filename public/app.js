@@ -111,11 +111,14 @@ function renderSidebar() {
   for (const p of S.projects) {
     const threads = S.threads.filter((t) => t.projectId === p.id).sort((a, b) => b.updatedAt - a.updatedAt);
     const key = `p:${p.id}`;
+    const toggle = () => { S.collapsed.has(p.id) ? S.collapsed.delete(p.id) : S.collapsed.add(p.id); renderSidebar(); };
     box.append(h('div', { class: 'proj' },
       h('div', { class: 'proj-head' },
-        h('span', { class: 'name', title: p.path, onclick: () => { S.collapsed.has(p.id) ? S.collapsed.delete(p.id) : S.collapsed.add(p.id); renderSidebar(); } }, p.name),
+        h('button', { class: 'iconbtn chev', title: S.collapsed.has(p.id) ? 'Show threads' : 'Hide threads', 'aria-expanded': String(!S.collapsed.has(p.id)), onclick: toggle }, S.collapsed.has(p.id) ? '▸' : '▾'),
+        h('span', { class: 'name', title: p.path, onclick: toggle }, p.name),
         h('button', { class: 'iconbtn', title: 'New thread', onclick: guarded(() => newThread(p.id)) }, '+'),
         h('button', { class: `iconbtn danger ${S.armed === key ? 'armed' : ''}`, title: 'Remove project and its threads (folder on disk is untouched)', onclick: guarded(() => armedDelete(key, () => api('DELETE', `/api/projects/${p.id}`))) }, S.armed === key ? 'sure?' : '×')),
+      h('div', { class: 'proj-path', title: p.path }, p.path),
       S.collapsed.has(p.id) ? null : threads.map((t) => threadRow(t)),
       !S.collapsed.has(p.id) && !threads.length ? h('div', { class: 'empty-hint' }, 'No threads yet') : null));
   }
@@ -160,13 +163,10 @@ function renderHeader() {
   head.replaceChildren();
   if (!S.cur) return;
   const t = S.cur.thread;
-  const project = S.projects.find((p) => p.id === t.projectId);
   head.append(
     h('input', { class: 'title', value: t.title, onchange: guarded((e) => api('PATCH', `/api/threads/${t.id}`, { title: e.target.value })) }),
     select(S.models, t.model, guarded((v) => api('PATCH', `/api/threads/${t.id}`, { model: v }))),
     select(S.modes, t.mode, guarded((v) => api('PATCH', `/api/threads/${t.id}`, { mode: v }))),
-    project && h('label', { class: 'chk', title: "Loads this project's CLAUDE.md and .claude/settings.json. Off by default — a cloned repo could use them to change how Claude behaves." },
-      h('input', { type: 'checkbox', checked: project.trusted, onchange: guarded((e) => api('PATCH', `/api/projects/${project.id}`, { trusted: e.target.checked })) }), 'Load CLAUDE.md'),
     h('button', { class: 'btn small', onclick: () => toggleDrawer('changes') }, 'Changes'),
     h('button', { class: 'btn small', onclick: () => toggleDrawer('network') }, 'Network'),
   );
