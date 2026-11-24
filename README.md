@@ -1,4 +1,4 @@
-# Claude Harness
+# Charness
 
 A small local GUI for Claude, laid out like T3 Code (projects → threads → chat, with approvals, a
 git "Changes" panel and a mode/model picker) but **Claude only** and built so you can read all of it.
@@ -29,7 +29,7 @@ Add a project folder in the sidebar (type its path), press **+** for a thread, a
 | A cloned repo changing Claude's behaviour | Project `CLAUDE.md` / `.claude/settings.json` (hooks, env…) are **always loaded** for every project, so only add folders you trust. Your user-level `~/.claude` settings and hooks are not loaded. |
 | Accidents | Default mode asks before edits/commands. "Full access (no prompts)" does not exist unless you start with `HARNESS_ALLOW_FULL_ACCESS=1`. `AskUserQuestion` is disabled so every question is a normal chat message. |
 | Third-party code in the UI | None: no framework, no CDN, no fonts, no analytics. Markdown is rendered with DOM nodes (never `innerHTML`). The git panel runs read-only git with `fsmonitor` and external diff/textconv disabled. |
-| Data at rest | `~/.claude-harness` (dirs `0700`, files `0600`): projects, threads, access token. Delete a thread/project in the UI and its file is removed. |
+| Data at rest | `~/.charness` (dirs `0700`, files `0600`): projects, threads, access token. Delete a thread/project in the UI and its file is removed. |
 
 ## What it cannot promise (please read)
 
@@ -56,19 +56,19 @@ Add a project folder in the sidebar (type its path), press **+** for a thread, a
 ## Run it as a Mac app
 
 ```bash
-./scripts/make-mac-app.sh          # builds  ~/Applications/Claude Harness.app
+./scripts/make-mac-app.sh          # builds  ~/Applications/Charness.app
 ```
 
 Double-click the app: it starts the server and opens a window. **Cmd-Q (or Dock → Quit) stops the server.**
 Clicking the Dock icon again re-opens the window. The app points at this folder, so keep it where it is
-(re-run the script if you move it). Logs: `~/.claude-harness/server.log`.
+(re-run the script if you move it). Logs: `~/.charness/server.log`.
 
 * **API key:** apps don't see what you `export` in Terminal. Store the key once in the Keychain instead
   (it asks you to type it; macOS may ask "Always Allow" the first time the app reads it):
-  `security add-generic-password -a "$USER" -s claude-harness -w`
+  `security add-generic-password -a "$USER" -s charness -w`
   Or skip this if you're already logged in to Claude Code on the Mac.
 * **Window:** if Chrome, Brave, Edge or Chromium is installed, the app uses it in a window of its own with a
-  dedicated empty profile (`~/.claude-harness/browser-profile`, sync and background networking off), so none of your
+  dedicated empty profile (`~/.charness/browser-profile`, sync and background networking off), so none of your
   browser extensions can read your chats. Otherwise it opens your default browser.
 * The built-in Mac permission prompts (Documents, Desktop…) appear for folders you add as projects. That's macOS.
 * Only the Linux-testable parts (`scripts/launch.sh`: start/stop, port fallback, Node discovery, error messages)
@@ -87,7 +87,7 @@ Clicking the Dock icon again re-opens the window. The app points at this folder,
 | `HARNESS_UPSTREAM_PROXY` | corporate proxy to chain through (defaults to your `HTTPS_PROXY`) |
 | `HARNESS_PASS_ENV=A,B` | extra env vars the Claude process may see |
 | `HARNESS_ALLOW_FULL_ACCESS=1` | adds the no-prompt mode |
-| `HARNESS_HOME` | data dir (default `~/.claude-harness`) |
+| `HARNESS_HOME` | data dir (default `~/.charness`) |
 
 Models in the dropdown are listed in `server.mjs` (`MODELS`); "Default" lets Claude Code choose.
 

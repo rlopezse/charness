@@ -1,4 +1,4 @@
-// Claude Harness UI — plain ES modules, no framework, no build step, no network except this origin.
+// Charness UI — plain ES modules, no framework, no build step, no network except this origin.
 import { apply } from './reduce.js';
 import { renderMarkdown } from './md.js';
 
@@ -70,7 +70,7 @@ const MODE_HINT = {
 function buildShell() {
   $('#app').append(
     h('aside', { id: 'side' },
-      h('div', { class: 'brand' }, h('span', { id: 'conn', class: 'dot' }), 'Claude Harness', h('span', { id: 'mockTag', class: 'mock hidden' }, 'MOCK')),
+      h('div', { class: 'brand' }, h('span', { id: 'conn', class: 'dot' }), 'Charness', h('span', { id: 'mockTag', class: 'mock hidden' }, 'MOCK')),
       h('div', { id: 'projects' }),
       h('div', { class: 'side-actions', id: 'addbox' }),
       h('div', { class: 'guard', id: 'guard', title: 'Show network log', onclick: () => toggleDrawer('network') }),
@@ -115,10 +115,11 @@ function renderSidebar() {
     box.append(h('div', { class: 'proj' },
       h('div', { class: 'proj-head' },
         h('button', { class: 'iconbtn chev', title: S.collapsed.has(p.id) ? 'Show threads' : 'Hide threads', 'aria-expanded': String(!S.collapsed.has(p.id)), onclick: toggle }, S.collapsed.has(p.id) ? '▸' : '▾'),
-        h('span', { class: 'name', title: p.path, onclick: toggle }, p.name),
+        h('div', { class: 'name-wrap', onclick: toggle },
+          h('span', { class: 'name', title: p.path }, p.name),
+          h('span', { class: 'proj-path', title: p.path }, p.path)),
         h('button', { class: 'iconbtn', title: 'New thread', onclick: guarded(() => newThread(p.id)) }, '+'),
         h('button', { class: `iconbtn danger ${S.armed === key ? 'armed' : ''}`, title: 'Remove project and its threads (folder on disk is untouched)', onclick: guarded(() => armedDelete(key, () => api('DELETE', `/api/projects/${p.id}`))) }, S.armed === key ? 'sure?' : '×')),
-      h('div', { class: 'proj-path', title: p.path }, p.path),
       S.collapsed.has(p.id) ? null : threads.map((t) => threadRow(t)),
       !S.collapsed.has(p.id) && !threads.length ? h('div', { class: 'empty-hint' }, 'No threads yet') : null));
   }

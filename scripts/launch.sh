@@ -1,11 +1,11 @@
 #!/bin/bash
-# Starts / stops the Claude Harness server for the macOS app wrapper.
+# Starts / stops the Charness server for the macOS app wrapper.
 # Also works on Linux (handy for testing).   Usage: launch.sh start | open | stop | status
 umask 077
 set -u
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DATA="${HARNESS_HOME:-$HOME/.claude-harness}"
+DATA="${HARNESS_HOME:-$HOME/.charness}"
 PIDFILE="$DATA/server.pid"
 PORTFILE="$DATA/server.port"
 LOG="$DATA/server.log"
@@ -30,12 +30,12 @@ find_node() {
 }
 
 # A GUI app does not see your shell's exports. If ANTHROPIC_API_KEY isn't set, look in the macOS Keychain
-# (item "claude-harness"). Otherwise the Claude Code login on this Mac is used, if you have one.
+# (item "charness"). Otherwise the Claude Code login on this Mac is used, if you have one.
 load_key() {
   [ -n "${ANTHROPIC_API_KEY:-}" ] && return 0
   command -v security >/dev/null 2>&1 || return 0
   local k
-  k="$(security find-generic-password -a "${USER:-$(id -un)}" -s claude-harness -w 2>/dev/null)" || return 0
+  k="$(security find-generic-password -a "${USER:-$(id -un)}" -s charness -w 2>/dev/null)" || return 0
   [ -n "$k" ] && export ANTHROPIC_API_KEY="$k"
   return 0
 }

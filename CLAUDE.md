@@ -9,7 +9,7 @@ npm install                 # Node >= 20; single pinned dependency: @anthropic-a
 npm start                   # real backend; prints http://127.0.0.1:4317/?token=... (open that link once)
 npm run mock                # fake backend, no network / API key needed (node server.mjs --mock)
 npm test                    # node test/smoke.mjs — end-to-end checks run against a --mock server
-./scripts/make-mac-app.sh   # builds ~/Applications/Claude Harness.app
+./scripts/make-mac-app.sh   # builds ~/Applications/Charness.app
 ```
 
 There is no linter or build step, and no test runner: `test/smoke.mjs` is one script that spawns the server in mock mode (random port, temp `HARNESS_HOME`) and asserts on it, so it can't run a single test in isolation. Server flags/env vars (`--port`, `--rotate-token`, `--no-guard`, `HARNESS_ALLOW_HOSTS`, `HARNESS_PASS_ENV`, `HARNESS_ALLOW_FULL_ACCESS`, `HARNESS_HOME`, ...) are tabulated in `README.md`.
@@ -21,7 +21,7 @@ A local GUI (projects → threads → chat) over the Claude Agent SDK, which run
 - `server.mjs` — HTTP + SSE server: token auth, `Host`/`Origin` checks, CSP, REST routes under `/api/*`, and the `MODELS` list for the dropdown. Loopback only.
 - `lib/agent.mjs` — bridge to the Agent SDK (`runTurn`), builds the child's environment from an allow-list (`baseEnv`/`buildEnv`), and contains the mock backend.
 - `lib/guard.mjs` — egress guard: a small CONNECT proxy the child is pointed at via `HTTPS_PROXY`; only `api.anthropic.com:443` plus user-allowed hosts are tunnelled, every attempt is logged to the Network panel.
-- `lib/store.mjs` — JSON persistence under `HARNESS_HOME` (default `~/.claude-harness`, dirs 0700 / files 0600): state, per-thread message files, access token.
+- `lib/store.mjs` — JSON persistence under `HARNESS_HOME` (default `~/.charness`, dirs 0700 / files 0600): state, per-thread message files, access token.
 - `public/` — the browser UI. `reduce.js` is the key shared piece: it folds agent events into the message list and is imported by **both** the server (to persist threads) and the browser (to render live), so changing event shapes means updating it for both sides. `md.js` renders Markdown via DOM nodes, never `innerHTML`.
 
 Security posture is the product; preserve these invariants when changing code:

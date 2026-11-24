@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Harness — a tiny local GUI for Claude (via the Claude Agent SDK).
+// Charness — a tiny local GUI for Claude (via the Claude Agent SDK).
 // Zero runtime dependencies besides the SDK. Listens on 127.0.0.1 only. Makes no outbound
 // requests itself; the Claude process it spawns is routed through the egress guard.
 import http from 'node:http';
@@ -405,7 +405,7 @@ server.on('error', (e) => {
 });
 server.listen(PORT, '127.0.0.1', () => {
   const link = `http://127.0.0.1:${PORT}/?token=${TOKEN}`;
-  console.log(`\nClaude Harness${MOCK ? ' (MOCK mode — no real model)' : ''}`);
+  console.log(`\nCharness${MOCK ? ' (MOCK mode — no real model)' : ''}`);
   console.log(`  open:   ${link}`);
   console.log(`  data:   ${store.HOME}`);
   console.log(`  egress: ${guard ? `guarded via 127.0.0.1:${guard.port}, allowed = ${allowList().join(', ')}` : 'NOT guarded (--no-guard)'}\n`);
