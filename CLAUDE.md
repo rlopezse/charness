@@ -9,7 +9,9 @@ npm install                 # Node >= 20; single pinned dependency: @anthropic-a
 npm start                   # real backend; prints http://127.0.0.1:4317/?token=... (open that link once)
 npm run mock                # fake backend, no network / API key needed (node server.mjs --mock)
 npm test                    # node test/smoke.mjs — end-to-end checks run against a --mock server
-./scripts/make-mac-app.sh   # builds ~/Applications/Charness.app
+./scripts/make-mac-app.sh   # builds the Swift package in mac/ into ~/Applications/Charness.app
+swift run --package-path mac core-checks     # Swift self-test (also runs on Linux; no Xcode needed)
+swift run --package-path mac charness-check  # read-only: does the Swift store rewrite ~/.charness byte for byte?
 ```
 
 There is no linter or build step, and no test runner: `test/smoke.mjs` is one script that spawns the server in mock mode (random port, temp `HARNESS_HOME`) and asserts on it, so it can't run a single test in isolation. Server flags/env vars (`--port`, `--rotate-token`, `--no-guard`, `HARNESS_ALLOW_HOSTS`, `HARNESS_PASS_ENV`, `HARNESS_ALLOW_FULL_ACCESS`, `HARNESS_HOME`, ...) are tabulated in `README.md`.
@@ -23,6 +25,8 @@ A local GUI (projects → threads → chat) over the Claude Agent SDK, which run
 - `lib/guard.mjs` — egress guard: a small CONNECT proxy the child is pointed at via `HTTPS_PROXY`; only `api.anthropic.com:443` plus user-allowed hosts are tunnelled, every attempt is logged to the Network panel.
 - `lib/store.mjs` — JSON persistence under `HARNESS_HOME` (default `~/.charness`, dirs 0700 / files 0600): state, per-thread message files, access token.
 - `public/` — the browser UI. `reduce.js` is the key shared piece: it folds agent events into the message list and is imported by **both** the server (to persist threads) and the browser (to render live), so changing event shapes means updating it for both sides. `md.js` renders Markdown via DOM nodes, never `innerHTML`.
+
+- `mac/` — the Swift migration (see `SWIFT_PORT_PLAN.md`). `Sources/Charness` is the macOS app (a WKWebView window over the Node server, started via `scripts/launch.sh`). `Sources/CharnessCore` holds Foundation-only ports of the Node modules; until the swap-over day they must read and rewrite Node's files byte for byte (`JSON.swift` mirrors `JSON.parse`/`JSON.stringify`) and keep unknown fields, and Node stays the only writer of `~/.charness`. Fixtures in `mac/Fixtures` are real Node output; regenerate them with the `.mjs` scripts there when the data format changes.
 
 Security posture is the product; preserve these invariants when changing code:
 - The child process gets only an allow-listed env (no `AWS_*`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`...), telemetry/update checks forced off, and project/user `CLAUDE.md` and settings are not loaded unless the project opts in.

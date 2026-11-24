@@ -1,0 +1,36 @@
+{
+  "projects": [
+    {
+      "id": "d42a7deabb38",
+      "name": "proj",
+      "path": "/sessions/rcw-01nl5cfw8x8km9cojeqhknkp/tmp/charness-fixtures-AZPsBs/proj"
+    }
+  ],
+  "threads": [
+    {
+      "id": "42cb4e1da7f4",
+      "projectId": "d42a7deabb38",
+      "title": "Título con acentos y \"comillas\"",
+      "model": "claude-sonnet-5-5",
+      "mode": "edits",
+      "sessionId": "mock-mwv3t31l",
+      "cost": 0.0084,
+      "createdAt": 1795549492135,
+      "updatedAt": 1795549493501
+    },
+    {
+      "id": "6c9c8519f374",
+      "projectId": "d42a7deabb38",
+      "title": "New thread",
+      "model": "claude-sonnet-5-5",
+      "mode": "edits",
+      "sessionId": null,
+      "cost": 0,
+      "createdAt": 1795549493506,
+      "updatedAt": 1795549493506
+    }
+  ],
+  "allowHosts": [
+    "example.com"
+  ]
+}
