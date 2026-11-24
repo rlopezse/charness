@@ -1,15 +1,15 @@
 #!/bin/bash
-# Builds "Charness.app": a native Swift app (mac/main.swift) that starts the server, shows the UI in ONE
+# Builds "Charness.app": a native Swift app (Swift package in mac/) that starts the server, shows the UI in ONE
 # window of its own (WKWebView, no browser involved), and stops the server when you Quit it.
 # Run this on your Mac:
 #     ./scripts/make-mac-app.sh                  # installs to ~/Applications
 #     ./scripts/make-mac-app.sh /some/folder     # or somewhere else
-# Needs the Xcode Command Line Tools for swiftc (xcode-select --install); full Xcode is not required.
+# Needs the Xcode Command Line Tools for Swift (xcode-select --install); full Xcode is not required.
 # The app points at THIS folder, so keep the folder where it is (re-run this script if you move it).
 set -eu
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="$HERE/mac/main.swift"
+PKG="$HERE/mac"
 BUNDLE_ID="local.charness.app"
 
 xml() { local s="$1"; s="${s//&/&amp;}"; s="${s//</&lt;}"; s="${s//>/&gt;}"; printf '%s' "$s"; }
@@ -42,8 +42,8 @@ PLIST
 if [ "${1:-}" = "--print-plist" ]; then info_plist; exit 0; fi
 
 if [ "$(uname)" != Darwin ]; then echo "This builds a macOS app, so run it on your Mac." >&2; exit 1; fi
-if ! xcrun --sdk macosx --find swiftc >/dev/null 2>&1; then
-  echo "swiftc not found. Install the Xcode Command Line Tools first:  xcode-select --install" >&2; exit 1
+if ! xcrun --sdk macosx --find swift >/dev/null 2>&1; then
+  echo "Swift not found. Install the Xcode Command Line Tools first:  xcode-select --install" >&2; exit 1
 fi
 if [ ! -d "$HERE/node_modules/@anthropic-ai/claude-agent-sdk" ]; then
   echo "Run 'npm install' in $HERE first." >&2; exit 1
@@ -60,8 +60,9 @@ trap 'rm -rf "$TMP"' EXIT
 OUT="$TMP/Charness.app/Contents"
 mkdir -p "$OUT/MacOS"
 
-echo "Compiling mac/main.swift…"
-xcrun --sdk macosx swiftc -O -target "$(uname -m)-apple-macos12.0" "$SRC" -o "$OUT/MacOS/Charness"
+echo "Building the Swift package in mac/ (release)…"
+xcrun --sdk macosx swift build -c release --package-path "$PKG" --product Charness
+cp "$(xcrun --sdk macosx swift build -c release --package-path "$PKG" --show-bin-path)/Charness" "$OUT/MacOS/Charness"
 info_plist > "$OUT/Info.plist"
 printf 'APPL????' > "$OUT/PkgInfo"
 # Ad-hoc signature so macOS treats the bundle as one app (window position, Keychain prompts, etc.).

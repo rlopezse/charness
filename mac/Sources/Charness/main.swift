@@ -2,8 +2,9 @@
 //
 // It starts the server with scripts/launch.sh (the same start/stop logic the old AppleScript applet used),
 // shows the UI in ONE WKWebView window instead of a Chrome window per launch, and stops the server on Quit.
-// Built by scripts/make-mac-app.sh with `swiftc`; no Xcode project and no third-party code.
+// Built by scripts/make-mac-app.sh (swift build); no Xcode project and no third-party code.
 
+#if canImport(AppKit)
 import AppKit
 import WebKit
 
@@ -266,3 +267,6 @@ let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
 app.run()
+#else
+print("Charness.app is macOS-only. On other systems, use `npm start`.")
+#endif

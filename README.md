@@ -68,11 +68,14 @@ stops the server.** Closing the window keeps the server running; clicking the Do
   (it asks you to type it; macOS may ask "Always Allow" the first time the app reads it):
   `security add-generic-password -a "$USER" -s charness -w`
   Or skip this if you're already logged in to Claude Code on the Mac.
-* **Window:** the app is a small native Swift program (`mac/main.swift`, AppKit + WKWebView, no third-party code).
+* **Window:** the app is a small native Swift program (`mac/Sources/Charness`, AppKit + WKWebView, no third-party code).
   It shows only this server; links in chats open in your default browser. No browser is launched, so no
   extensions can read your chats and no extra tabs or windows pile up. Edit menu, ⌘R reload and ⌘= / ⌘- / ⌘0 zoom work.
   Web Inspector, if you need it: `defaults write local.charness.app CharnessInspectable -bool true`.
 * The built-in Mac permission prompts (Documents, Desktop…) appear for folders you add as projects. That's macOS.
+* **Swift checks** (Command Line Tools are enough, no Xcode): `swift run --package-path mac core-checks` tests the
+  Swift port; `swift run --package-path mac charness-check` compares your real `~/.charness` with what the Swift
+  store would write. It only reads: it never changes a file and never prints chat contents.
 * Only the Linux-testable parts (`scripts/launch.sh`: start/stop, port fallback, Node discovery, error messages)
   were run by me; the Swift app, `swiftc`, `codesign` and Keychain run only on a Mac.
 
@@ -101,7 +104,11 @@ lib/agent.mjs     Agent SDK bridge, env allow-list, mock     (~200)
 lib/guard.mjs     egress guard (CONNECT proxy)               (~95)
 lib/store.mjs     JSON persistence                           (~70)
 public/           index.html, app.js, md.js, reduce.js, style.css
-mac/main.swift    native macOS window (AppKit + WKWebView)    (~270)
-scripts/          launch.sh (start/stop for the app), make-mac-app.sh (compiles mac/main.swift)
+mac/              Swift package (see mac/Package.swift and SWIFT_PORT_PLAN.md)
+  Sources/Charness       native macOS window (AppKit + WKWebView)
+  Sources/CharnessCore   Foundation-only ports of the Node code: JSON.swift, Store.swift (lib/store.mjs)
+  Sources/core-checks    self-test (fixtures in mac/Fixtures are real Node output)
+  Sources/charness-check read-only check of your data against the Swift store
+scripts/          launch.sh (start/stop for the app), make-mac-app.sh (builds mac/ into Charness.app)
 test/smoke.mjs    22 end-to-end checks in mock mode
 ```

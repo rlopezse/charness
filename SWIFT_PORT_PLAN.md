@@ -1,6 +1,27 @@
 # Swift port plan
 
-Status: **proposal only**. No code has changed; the Node version stays the working implementation.
+Status: **in progress** on branch `feat/swift-port`, one step per day; the app works at the end of each day.
+Node stays the working implementation (and the only writer of `~/.charness`) until the swap-over (day 7).
+
+## Progress
+
+| Day | Step | Status |
+|---|---|---|
+| 1 | Native window: `Charness.app` is Swift (AppKit + WKWebView) around the Node server | done |
+| 2 | Swift package in `mac/`; `store.mjs` → `CharnessCore/Store.swift` (+ `JSON.swift`), read-only for now | done |
+| 3 | Spike: drive the `claude` CLI over `stream-json`, incl. the permission request (go / no-go) | next |
+| 4 | Child env allow-list (`buildEnv`/`baseEnv`) and mock backend | |
+| 5 | Reducer (`reduce.js`) with golden tests against the JS version | |
+| 6 | Egress guard on Network.framework | |
+| 7-8 | Swap-over: Swift answers `/api` for the existing web UI; Node no longer needed | |
+| 9 | Git Changes panel | |
+| 10-14 | Native SwiftUI screens (optional) | |
+| 15 | Tests and packaging | |
+
+Day 2 notes: no official Swift Agent SDK exists (checked Nov 2026; only community packages, which the
+no-third-party-code rule excludes). The store refuses a corrupt `state.json` instead of starting empty and
+overwriting it, as Node does. Its JSON layer mirrors `JSON.parse`/`JSON.stringify` exactly (64 cases checked
+against real JavaScript output), so Swift can rewrite Node's files byte for byte.
 
 ## Summary
 
