@@ -1,7 +1,7 @@
 // Shared by the server (to persist threads) and the browser (to render them live).
 // A thread is a list of messages; events from the agent are folded into it here.
 //
-//   {role:'user', text}
+//   {role:'user', text, files?: [{name, size}]}
 //   {role:'assistant', blocks:[{type:'text', text} | {type:'tool', id, name, input, status, output?}], done?}
 //   {role:'system', text}
 
@@ -25,7 +25,7 @@ export function apply(msgs, ev) {
 
   switch (ev.t) {
     case 'user':
-      msgs.push({ role: 'user', text: ev.text, ts: ev.ts });
+      msgs.push(ev.files?.length ? { role: 'user', text: ev.text, files: ev.files, ts: ev.ts } : { role: 'user', text: ev.text, ts: ev.ts });
       return msgs.length - 1;
 
     case 'delta': {
@@ -71,5 +71,22 @@ export function apply(msgs, ev) {
 
     default:
       return -1;
+  }
+}
+
+/** One-line summary of a tool call ("npm test", "src/app.js"...). Shared by the tool cards and the live activity feed. */
+export function toolSummary(name, input) {
+  const i = input || {};
+  const first = (s) => String(s ?? '').split('\n')[0].slice(0, 140);
+  switch (name) {
+    case 'Bash': return first(i.command);
+    case 'Read': case 'Write': case 'Edit': case 'MultiEdit': case 'NotebookEdit': return first(i.file_path || i.notebook_path);
+    case 'Grep': return first(`${i.pattern ?? ''}${i.path ? `  in ${i.path}` : ''}`);
+    case 'Glob': return first(i.pattern);
+    case 'WebFetch': return first(i.url);
+    case 'WebSearch': return first(i.query);
+    case 'Task': case 'Agent': return first(i.description);
+    case 'TodoWrite': return `${(i.todos || []).length} items`;
+    default: { const v = Object.values(i).find((x) => typeof x === 'string'); return first(v); }
   }
 }

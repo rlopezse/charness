@@ -11,6 +11,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import * as store from './lib/store.mjs';
+import * as uploads from './lib/uploads.mjs';
 import { startGuard } from './lib/guard.mjs';
 import { runTurn, buildEnv, baseEnv, clipInput } from './lib/agent.mjs';
 import { apply } from './public/reduce.js';
@@ -92,7 +93,7 @@ function broadcast(obj) {
 setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20000).unref();
 
 // ---------------------------------------------------------------- runs & permissions
-const runs = new Map();      // threadId -> { abort }
+const runs = new Map();      // threadId -> { abort, activity }
 const pending = new Map();   // permId   -> { perm, resolve, input }
 
 const threadById = (id) => store.state.threads.find((t) => t.id === id);
@@ -108,8 +109,14 @@ function settle(permId, result) {
   return true;
 }
 
-async function sendMessage(thread, text) {
+async function sendMessage(thread, text, files = []) {
   const project = projectById(thread.projectId);
+  // Attached files: Claude gets the paths in the message and read access to the thread's upload folder
+  // (also on later turns, so it can go back to them).
+  const prompt = files.length
+    ? `${text}${text ? '\n\n' : ''}Attached files (read them with the Read tool):\n${files.map((f) => `- ${f.path}`).join('\n')}`
+    : text;
+  const uploadDir = uploads.folderIfAny(thread.id);
   const abort = new AbortController();
   runs.set(thread.id, { abort });
   const msgs = store.loadThread(thread.id).messages;
@@ -136,17 +143,23 @@ async function sendMessage(thread, text) {
     o.signal?.addEventListener('abort', () => settle(perm.id, { behavior: 'deny', message: 'Stopped by the user.', interrupt: true }));
   });
 
-  emit({ t: 'user', text });
+  emit(files.length ? { t: 'user', text, files: files.map(({ name, size }) => ({ name, size })) } : { t: 'user', text });
   if (thread.title === 'New thread') {
-    thread.title = text.replace(/\s+/g, ' ').slice(0, 48);
+    thread.title = (text || files[0]?.name || 'New thread').replace(/\s+/g, ' ').slice(0, 48);
     broadcast({ type: 'state' });
   }
   broadcast({ type: 'busy', threadId: thread.id, busy: true });
 
   try {
     await runTurn({
-      thread, project, text, sdkMode: mode.sdk, abort, emit, canUseTool, mock: MOCK,
+      thread, project, text: prompt, sdkMode: mode.sdk, abort, emit, canUseTool, mock: MOCK,
+      addDirs: uploadDir ? [uploadDir] : [],
       env: buildEnv({ guardPort: guard?.port }),
+      activity: (a) => {                       // live feed only: kept with the run, never written to disk
+        const r = runs.get(thread.id);
+        if (r) r.activity = a;
+        broadcast({ type: 'activity', threadId: thread.id, activity: a });
+      },
     });
   } catch (e) {
     emit({ t: 'error', text: String(e?.message || e) });
@@ -185,6 +198,15 @@ const json = (res, code, obj) => {
   res.end(body);
 };
 const fail = (res, code, msg) => json(res, code, { error: msg });
+/** The raw request body, or null if it is larger than `limit` (the rest is read and dropped). */
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    let size = 0; let tooBig = false; const chunks = [];
+    req.on('data', (c) => { size += c.length; if (size > limit) { tooBig = true; chunks.length = 0; } else if (!tooBig) chunks.push(c); });
+    req.on('end', () => resolve(tooBig ? null : Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
 function readBody(req, limit = 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
@@ -294,7 +316,7 @@ async function handle(req, res) {
       if (method === 'DELETE') {
         const ids = store.state.threads.filter((t) => t.projectId === project.id).map((t) => t.id);
         if (ids.some((id) => runs.has(id))) return fail(res, 409, 'A thread is still running');
-        for (const id of ids) store.deleteThreadFiles(id);
+        for (const id of ids) { store.deleteThreadFiles(id); uploads.removeAll(id); }
         store.state.threads = store.state.threads.filter((t) => t.projectId !== project.id);
         store.state.projects = store.state.projects.filter((p) => p.id !== project.id);   // folder on disk is untouched
         store.saveState(); broadcast({ type: 'state' });
@@ -318,7 +340,7 @@ async function handle(req, res) {
       const sub = m[2];
 
       if (!sub && method === 'GET') {
-        return json(res, 200, { thread: publicThread(thread), messages: store.loadThread(thread.id).messages, perms: pendingFor(thread.id) });
+        return json(res, 200, { thread: publicThread(thread), messages: store.loadThread(thread.id).messages, perms: pendingFor(thread.id), activity: runs.get(thread.id)?.activity || null });
       }
       if (!sub && method === 'PATCH') {
         const b = await readBody(req);
@@ -331,17 +353,30 @@ async function handle(req, res) {
       if (!sub && method === 'DELETE') {
         if (runs.has(thread.id)) return fail(res, 409, 'Thread is running — stop it first');
         store.deleteThreadFiles(thread.id);
+        uploads.removeAll(thread.id);
         store.state.threads = store.state.threads.filter((t) => t.id !== thread.id);
         store.saveState(); broadcast({ type: 'state' });
         return json(res, 200, { ok: true });
       }
+      if (sub === '/files' && method === 'POST') {
+        // one attached file per request, as raw bytes; its name comes URL-encoded in X-File-Name
+        const bytes = await readRaw(req, uploads.MAX_FILE_BYTES);
+        if (!bytes) return fail(res, 413, `File too large (limit ${uploads.MAX_FILE_BYTES / 1024 / 1024} MB)`);
+        let raw = String(req.headers['x-file-name'] || 'file');
+        try { raw = decodeURIComponent(raw); } catch { /* keep it as sent */ }
+        return json(res, 200, uploads.save(thread.id, raw, bytes));
+      }
       if (sub === '/send' && method === 'POST') {
         const b = await readBody(req);
         const text = typeof b.text === 'string' ? b.text.trim() : '';
-        if (!text || text.length > 200000) return fail(res, 400, 'empty or too long');
+        const names = Array.isArray(b.files) ? b.files : [];
+        if (names.length > uploads.MAX_FILES_PER_MESSAGE) return fail(res, 400, `At most ${uploads.MAX_FILES_PER_MESSAGE} files per message`);
+        const files = names.map((n) => uploads.find(thread.id, n));
+        if (files.some((f) => !f)) return fail(res, 400, 'unknown attached file');
+        if ((!text && !files.length) || text.length > 200000) return fail(res, 400, 'empty or too long');
         if (runs.has(thread.id)) return fail(res, 409, 'Already running');
         if (!projectById(thread.projectId)) return fail(res, 400, 'project missing');
-        sendMessage(thread, text);               // runs in the background; progress arrives over SSE
+        sendMessage(thread, text, files);        // runs in the background; progress arrives over SSE
         return json(res, 202, { ok: true });
       }
       if (sub === '/stop' && method === 'POST') {

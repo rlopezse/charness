@@ -1,0 +1,239 @@
+[
+ {
+  "kind": "activity",
+  "now": "Starting Claude Code…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "session",
+   "sessionId": "prev-session-9",
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": []
+ },
+ {
+  "kind": "activity",
+  "now": "Writing…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Mock "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "mode "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "(acceptEdits). "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "I'll "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "make "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "a "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "small "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "edit "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "in "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "`$FOLDER`.\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_use",
+   "id": "$TOOLU_1",
+   "name": "Edit",
+   "input": {
+    "file_path": "$CWD/hello.txt",
+    "old_string": "hello world",
+    "new_string": "hello, harness"
+   }
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Edit: $CWD/hello.txt",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Edit: $CWD/hello.txt",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Waiting for your approval: Edit",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Edit: $CWD/hello.txt",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "permission",
+  "name": "Edit",
+  "input": {
+   "file_path": "$CWD/hello.txt",
+   "old_string": "hello world",
+   "new_string": "hello, harness"
+  },
+  "toolUseID": "$TOOLU_1",
+  "title": "Claude wants to use Edit"
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Edit: $CWD/hello.txt",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Edit: $CWD/hello.txt",
+    "sub": false,
+    "status": "error"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_result",
+   "id": "$TOOLU_1",
+   "output": "The user denied this action. Do not retry it; ask what they would like instead.",
+   "isError": true
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Understood, "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "I "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "did "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "not "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "run "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "it."
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "end",
+   "cost": 0.0042,
+   "turns": 2,
+   "ms": 1234
+  }
+ },
+ {
+  "kind": "activity",
+  "now": null,
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Edit: $CWD/hello.txt",
+    "sub": false,
+    "status": "error"
+   }
+  ]
+ }
+]

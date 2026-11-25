@@ -18,6 +18,7 @@ const PORT = 4300 + Math.floor(Math.random() * 500);
 const echo = net.createServer((s) => s.end('hello-from-echo')).listen(0, '127.0.0.1');
 await new Promise((r) => echo.once('listening', r));
 const echoPort = echo.address().port;
+let sse = null;            // live-event stream, opened once we have the cookie
 
 const child = spawn(process.execPath, [path.join(ROOT, 'server.mjs'), '--mock', '--port', String(PORT)], {
   env: { ...process.env, HARNESS_HOME: path.join(tmp, 'home'), HARNESS_UPSTREAM_PROXY: '', HTTPS_PROXY: '', https_proxy: '', HARNESS_ALLOW_HOSTS: `127.0.0.1:${echoPort}` },
@@ -61,6 +62,20 @@ try {
   assert.match(page.headers['content-security-policy'], /connect-src 'self'/);
   assert.doesNotMatch(page.body, /https?:\/\//); ok('CSP set, page has no external URLs');
 
+  // listen to the live-event stream like the browser does
+  const frames = [];
+  sse = http.get({ host: '127.0.0.1', port: PORT, path: '/api/events', headers: { cookie } }, (res) => {
+    let buf = '';
+    res.on('data', (c) => {
+      buf += c;
+      for (let i; (i = buf.indexOf('\n\n')) >= 0;) {
+        const m = /^data: (.*)$/m.exec(buf.slice(0, i)); buf = buf.slice(i + 2);
+        if (m) { try { frames.push(JSON.parse(m[1])); } catch { /* ignore */ } }
+      }
+    });
+  });
+  sse.on('error', () => {});
+
   console.log('threads & permissions');
   assert.equal((await call('POST', '/api/projects', { path: path.join(tmp, 'missing') })).status, 400); ok('rejects non-folder');
   const p = (await call('POST', '/api/projects', { path: proj })).json;
@@ -70,6 +85,9 @@ try {
   const wait = async (fn, ms = 6000) => { const end = Date.now() + ms; for (;;) { const v = await fn(); if (v) return v; if (Date.now() > end) throw new Error('timeout'); await new Promise((r) => setTimeout(r, 40)); } };
   const perm = await wait(async () => (await call('GET', '/api/state')).json.perms[0]);
   assert.equal(perm.tool, 'Bash'); ok('Bash permission request raised');
+  const live = (await call('GET', `/api/threads/${t.id}`)).json.activity;
+  assert.match(live.now, /^Waiting for your approval: Bash/);
+  assert.ok(live.steps.some((x) => x.text === 'Bash: ls -la' && x.status === 'running')); ok('live activity: "waiting for approval" with the step running');
   assert.equal((await call('POST', `/api/permissions/${perm.id}`, { allow: true })).status, 200);
   const done = await wait(async () => { const r = (await call('GET', `/api/threads/${t.id}`)).json; return !r.thread.busy && r.messages.length >= 2 ? r : null; });
   const asst = done.messages.find((m) => m.role === 'assistant');
@@ -78,6 +96,16 @@ try {
   assert.equal(tool.status, 'ok'); assert.match(tool.output, /hello.txt/);
   assert.ok(asst.done.cost > 0); ok('streamed text + approved tool + result + cost recorded');
   assert.equal(done.thread.title, 'hello there'); ok('thread auto-titled');
+  await wait(async () => frames.some((f) => f.type === 'busy' && f.threadId === t.id && f.busy === false));
+  const acts = frames.filter((f) => f.type === 'activity' && f.threadId === t.id).map((f) => f.activity);
+  assert.ok(acts.some((a) => a.now === 'Thinking…') && acts.some((a) => a.now === 'Writing…') && acts.some((a) => a.now === 'Bash: ls -la'));
+  assert.ok(acts.some((a) => a.now === '↳ Glob: **/*')); ok('live activity: thinking, writing, the running command, sub-agent steps');
+  const lastAct = acts.at(-1);
+  assert.equal(lastAct.now, null);
+  assert.deepEqual(lastAct.steps.map((x) => `${x.sub ? '↳ ' : ''}${x.text} ${x.status}`),
+    ['Bash: ls -la ok', 'Task: Look around the project ok', '↳ Glob: **/* ok', '↳ Read: ' + path.join(proj, 'hello.txt') + ' ok']);
+  assert.equal((await call('GET', `/api/threads/${t.id}`)).json.activity, null);
+  assert.ok(!JSON.stringify(done.messages).includes('**/*')); ok('live activity: steps ticked off, cleared when done, sub-agent steps not saved');
 
   // deny path
   assert.equal((await call('POST', `/api/threads/${t.id}/send`, { text: 'edit something' })).status, 202);
@@ -107,6 +135,36 @@ try {
   const mode = fs.statSync(path.join(tmp, 'home', 'state.json')).mode & 0o777;
   assert.equal(mode, 0o600); ok('thread saved to disk, files are chmod 600');
 
+  console.log('attachments');
+  const t2 = (await call('POST', '/api/threads', { projectId: p.id })).json;
+  const upload = (name, body, headers = H) => raw({ method: 'POST', path: `/api/threads/${t2.id}/files`,
+    headers: { ...headers, 'content-type': 'application/octet-stream', 'x-file-name': encodeURIComponent(name) } }, body);
+  const j = (r) => JSON.parse(r.body);
+  const up1 = j(await upload('notes.txt', 'hello from a file'));
+  assert.deepEqual(up1, { name: 'notes.txt', size: 17 });
+  assert.equal(j(await upload('notes.txt', 'again')).name, 'notes (2).txt');
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+  assert.deepEqual(j(await upload('foto ñ.png', png)), { name: 'foto ñ.png', size: png.length }); ok('files upload (text and binary, duplicate names numbered)');
+  const updir = path.join(tmp, 'home', 'uploads', t2.id);
+  assert.equal(j(await upload('../../../evil.txt', 'x')).name, 'evil.txt');
+  assert.equal(j(await upload('.env', 'x')).name, 'env');
+  assert.deepEqual(fs.readdirSync(updir).sort(), ['env', 'evil.txt', 'foto ñ.png', 'notes (2).txt', 'notes.txt']);
+  assert.equal(fs.statSync(updir).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(path.join(updir, 'notes.txt')).mode & 0o777, 0o600); ok('names cleaned (no ../, no hidden files), folder 700, files 600');
+  assert.equal((await upload('x.txt', 'x', { cookie, origin: 'http://evil.com', 'x-harness': '1' })).status, 403);
+  assert.equal((await upload('big.bin', Buffer.alloc(25 * 1024 * 1024 + 1))).status, 413);
+  assert.equal((await call('POST', `/api/threads/${t2.id}/send`, { text: 'hi', files: ['../state.json'] })).status, 400);
+  assert.equal((await call('POST', `/api/threads/${t2.id}/send`, { text: 'hi', files: ['missing.txt'] })).status, 400); ok('foreign origin, files over 25 MB and unknown or ../ names refused');
+  assert.equal((await call('POST', `/api/threads/${t2.id}/send`, { text: '', files: ['notes.txt', 'foto ñ.png'] })).status, 202);
+  const perm3 = await wait(async () => (await call('GET', '/api/state')).json.perms.find((x) => x.threadId === t2.id));
+  await call('POST', `/api/permissions/${perm3.id}`, { allow: true });
+  const done3 = await wait(async () => { const r = (await call('GET', `/api/threads/${t2.id}`)).json; return !r.thread.busy && r.messages.length >= 2 ? r : null; });
+  assert.deepEqual(done3.messages[0], { role: 'user', text: '', files: [{ name: 'notes.txt', size: 17 }, { name: 'foto ñ.png', size: png.length }], ts: done3.messages[0].ts });
+  assert.equal(done3.thread.title, 'notes.txt');
+  assert.match(done3.messages[1].blocks[0].text, /Attached files/); ok('a message with only files is sent; files saved with it; thread named after the file');
+  assert.equal((await call('DELETE', `/api/threads/${t2.id}`)).status, 200);
+  assert.ok(!fs.existsSync(updir)); ok("deleting the thread deletes its files");
+
   console.log('git (hardened)');
   const d = (await call('GET', `/api/threads/${t.id}/diff`)).json;
   assert.equal(d.isRepo, false); ok('non-repo handled');
@@ -134,6 +192,11 @@ try {
   console.error('\nFAILED:', e.message, '\n', e.stack?.split('\n').slice(1, 4).join('\n'));
   process.exitCode = 1;
 } finally {
-  child.kill('SIGTERM'); echo.close();
+  sse?.destroy(); echo.close();
+  // the server saves its state as it shuts down: let it finish before deleting its folder
+  if (child.exitCode === null) {
+    child.kill('SIGTERM');
+    await Promise.race([new Promise((r) => child.once('exit', r)), new Promise((r) => setTimeout(r, 5000))]);
+  }
   fs.rmSync(tmp, { recursive: true, force: true });
 }

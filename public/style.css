@@ -70,7 +70,7 @@ button { cursor: pointer; }
 @keyframes pulse { 50% { opacity: .25; } }
 
 #scroller { flex: 1; overflow: auto; padding: 20px 0 8px; }
-#msgs, #perms, #empty { max-width: 820px; margin: 0 auto; padding: 0 20px; }
+#msgs, #activity, #perms, #empty { max-width: 820px; margin: 0 auto; padding: 0 20px; }
 .msg { margin: 0 0 18px; }
 .msg.user { display: flex; justify-content: flex-end; }
 .bubble { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px 12px 2px 12px; padding: 8px 12px; max-width: 85%; white-space: pre-wrap; word-wrap: break-word; }
@@ -159,3 +159,33 @@ details.tool.running .tstat { color: var(--warn); border-color: var(--warn); }
   #app, #app.drawer-open { grid-template-columns: 220px minmax(0, 1fr); }
   #app.drawer-open #drawer { position: fixed; inset: 0 0 0 auto; width: min(420px, 92vw); z-index: 5; }
 }
+
+/* ---------- live activity while Claude works (not saved) ---------- */
+#activity:empty { display: none; }
+.act-now { display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 13px; margin: 10px 0 4px; min-width: 0; }
+.act-now::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
+.act-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.act-time { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.act-steps { list-style: none; margin: 0 0 10px; padding: 0 0 0 16px; font: 12px/1.6 var(--mono); color: var(--muted); }
+.act-steps li { display: flex; gap: 6px; min-width: 0; white-space: nowrap; }
+.act-steps li.sub { padding-left: 18px; }
+.act-steps .txt { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.act-steps .mark { flex: none; width: 1em; text-align: center; }
+.act-steps li.step-ok .mark { color: var(--good); }
+.act-steps li.step-error .mark { color: var(--bad); }
+.act-steps li.step-running .mark { color: var(--warn); }
+
+/* ---------- attachments ---------- */
+#composer .btn.attach { flex: none; padding: 6px 9px; font-size: 15px; line-height: 1; background: transparent; border-color: transparent; }
+#composer .btn.attach:hover:not(:disabled) { border-color: var(--line); }
+#attachments { max-width: 820px; margin: 0 auto 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+#attachments:empty { display: none; }
+.file-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; padding: 3px 6px 3px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 12px; white-space: nowrap; }
+.file-chip .fname { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.file-chip .fsize { flex: none; color: var(--muted); }
+.file-chip .ficon { flex: none; }
+.file-chip .fremove { flex: none; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.file-chip .fremove:hover { color: var(--bad); }
+.bubble .files { display: flex; flex-wrap: wrap; gap: 6px; white-space: normal; }
+.bubble .files:not(:first-child) { margin-top: 8px; }
+.bubble .file-chip { background: var(--bg); }

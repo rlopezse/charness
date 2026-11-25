@@ -1,0 +1,534 @@
+[
+ {
+  "kind": "activity",
+  "now": "Starting Claude Code…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "session",
+   "sessionId": "fake-session-1",
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": []
+ },
+ {
+  "kind": "activity",
+  "now": "Writing…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Fake "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Claude "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "(acceptEdits, "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "claude-sonnet-5-5). "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "You "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "said: "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "list "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "the "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "files\n\n"
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Preparing Bash…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_use",
+   "id": "toolu_A",
+   "name": "Bash",
+   "input": {
+    "command": "ls",
+    "description": "List files"
+   }
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: ls",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Waiting for your approval: Bash",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "permission",
+  "name": "Bash",
+  "input": {
+   "command": "ls",
+   "description": "List files"
+  },
+  "toolUseID": "toolu_A",
+  "title": "Claude wants to use Bash",
+  "description": "Run a command"
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: ls",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: ls",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_result",
+   "id": "toolu_A",
+   "output": "file-a\nfile-b",
+   "isError": false
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_use",
+   "id": "toolu_T",
+   "name": "Task",
+   "input": {
+    "description": "Look around",
+    "prompt": "Read the files",
+    "subagent_type": "Explore"
+   }
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Task: Look around",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Glob: **/*",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Glob: **/*",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Read: $CWD/file-a",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S2",
+    "text": "Read: $CWD/file-a",
+    "sub": true,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Read: $CWD/file-a",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S2",
+    "text": "Read: $CWD/file-a",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Read: $CWD/file-a",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S2",
+    "text": "Read: $CWD/file-a",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_result",
+   "id": "toolu_T",
+   "output": "Two files.",
+   "isError": false
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S2",
+    "text": "Read: $CWD/file-a",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Claude API error 529, retrying (1/10)…",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S2",
+    "text": "Read: $CWD/file-a",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Writing…",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S2",
+    "text": "Read: $CWD/file-a",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "All "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "done "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "— "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "\"quotes\", "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "ñ, "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "🚀."
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "end",
+   "cost": 0.0123,
+   "turns": 3,
+   "ms": 4321
+  }
+ },
+ {
+  "kind": "activity",
+  "now": null,
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: ls",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_T",
+    "text": "Task: Look around",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S1",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "toolu_S2",
+    "text": "Read: $CWD/file-a",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ }
+]

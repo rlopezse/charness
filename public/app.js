@@ -1,5 +1,5 @@
 // Charness UI — plain ES modules, no framework, no build step, no network except this origin.
-import { apply } from './reduce.js';
+import { apply, toolSummary } from './reduce.js';
 import { renderMarkdown } from './md.js';
 
 // ------------------------------------------------------------------ tiny helpers
@@ -52,6 +52,8 @@ const S = {
   guard: { on: false, allow: [], log: [] },
   cur: null,                 // { thread, messages }
   busy: new Set(), perms: new Map(),
+  activity: new Map(),       // threadId -> live activity while Claude works ({ now, since, steps }); not saved
+  attach: [],                // files picked for the next message (File objects), uploaded on Send
   drawer: null,              // null | 'changes' | 'network'
   open: new Set(),           // expanded tool cards
   collapsed: new Set(),      // collapsed projects
@@ -77,9 +79,12 @@ function buildShell() {
     ),
     h('main', { id: 'main' },
       h('header', { id: 'head' }),
-      h('div', { id: 'scroller' }, h('div', { id: 'empty' }), h('div', { id: 'msgs' }), h('div', { id: 'perms' })),
+      h('div', { id: 'scroller' }, h('div', { id: 'empty' }), h('div', { id: 'msgs' }), h('div', { id: 'activity' }), h('div', { id: 'perms' })),
       h('footer', { id: 'composer' },
+        h('div', { id: 'attachments' }),
         h('div', { class: 'box' },
+          h('input', { id: 'file', type: 'file', multiple: true, hidden: true, onchange: onFilesPicked }),
+          h('button', { id: 'attach', class: 'btn attach', title: 'Attach files', 'aria-label': 'Attach files', onclick: () => $('#file').click() }, '📎'),
           h('textarea', { id: 'input', rows: '1', placeholder: 'Message Claude…' }),
           h('button', { id: 'send', class: 'btn primary', onclick: guarded(onSendClick) }, 'Send')),
         h('div', { class: 'hint', id: 'hint' })),
@@ -182,6 +187,7 @@ function renderComposer() {
   send.textContent = busy ? 'Stop' : 'Send';
   send.className = busy ? 'btn' : 'btn primary';
   send.disabled = !t;
+  $('#attach').disabled = !t || busy;
   $('#hint').textContent = t ? `${MODE_HINT[t.mode] || ''}${t.cost ? `  ·  thread cost so far $${t.cost.toFixed(4)}` : ''}` : '';
 }
 async function onSendClick() {
@@ -190,10 +196,65 @@ async function onSendClick() {
   if (S.busy.has(t.id)) { await api('POST', `/api/threads/${t.id}/stop`); return; }
   const input = $('#input');
   const text = input.value.trim();
-  if (!text) return;
+  const files = S.attach;
+  if (!text && !files.length) return;
   input.value = ''; autosize();
+  S.attach = []; renderAttachments();
   S.stick = true;
-  try { await api('POST', `/api/threads/${t.id}/send`, { text }); } catch (e) { input.value = text; autosize(); throw e; }
+  const send = $('#send');
+  try {
+    const names = [];
+    for (const [i, f] of files.entries()) {
+      send.disabled = true; send.textContent = `Uploading ${i + 1}/${files.length}…`;
+      names.push((await uploadFile(t.id, f)).name);
+    }
+    await api('POST', `/api/threads/${t.id}/send`, names.length ? { text, files: names } : { text });
+  } catch (e) {
+    input.value = text; autosize();
+    S.attach = files; renderAttachments();
+    throw e;
+  } finally {
+    renderComposer();
+  }
+}
+
+// ------------------------------------------------------------------ attachments
+const MAX_FILE_BYTES = 25 * 1024 * 1024;   // same limits as lib/uploads.mjs
+const MAX_FILES = 10;
+const fmtSize = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+const fileIcon = (name) => (/\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name) ? '🖼' : /\.pdf$/i.test(name) ? '📕' : '📄');
+function onFilesPicked(e) {
+  const skipped = [];
+  for (const f of e.target.files) {
+    if (f.size > MAX_FILE_BYTES) skipped.push(`${f.name} is larger than 25 MB`);
+    else if (S.attach.length >= MAX_FILES) skipped.push(`at most ${MAX_FILES} files per message`);
+    else S.attach.push(f);
+  }
+  e.target.value = '';                       // so picking the same file again still fires
+  if (skipped.length) toast(`Not attached: ${[...new Set(skipped)].join('; ')}`);
+  renderAttachments();
+  $('#input').focus();
+}
+async function uploadFile(threadId, file) {
+  const r = await fetch(`/api/threads/${threadId}/files`, {
+    method: 'POST',
+    headers: { 'X-Harness': '1', 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
+    body: file,
+  });
+  let data = null;
+  try { data = await r.json(); } catch { /* empty */ }
+  if (!r.ok) throw new Error(`${file.name}: ${data?.error || r.statusText}`);
+  return data;
+}
+function fileChip(f, onRemove) {
+  return h('span', { class: 'file-chip', title: f.name },
+    h('span', { class: 'ficon' }, fileIcon(f.name)),
+    h('span', { class: 'fname' }, f.name),
+    h('span', { class: 'fsize' }, fmtSize(f.size)),
+    onRemove && h('button', { class: 'fremove', title: `Remove ${f.name}`, 'aria-label': `Remove ${f.name}`, onclick: onRemove }, '×'));
+}
+function renderAttachments() {
+  fill($('#attachments'), S.attach.map((f, i) => fileChip(f, () => { S.attach.splice(i, 1); renderAttachments(); })));
 }
 
 // ------------------------------------------------------------------ rendering: messages
@@ -227,7 +288,12 @@ function flushDirty() {
 function markDirty(i) { S.dirty.add(i); if (!S.raf) S.raf = requestAnimationFrame(flushDirty); }
 
 function msgNode(m) {
-  if (m.role === 'user') return h('div', { class: 'msg user' }, h('div', { class: 'bubble' }, m.text));
+  if (m.role === 'user') {
+    return h('div', { class: 'msg user' },
+      h('div', { class: 'bubble' },
+        m.text || null,
+        m.files?.length ? h('div', { class: 'files' }, m.files.map((f) => fileChip(f))) : null));
+  }
   if (m.role === 'system') return h('div', { class: 'msg sys' }, m.text);
   const wrap = h('div', { class: 'msg assistant' });
   for (const b of m.blocks) wrap.append(b.type === 'text' ? renderMarkdown(b.text) : toolCard(b));
@@ -242,21 +308,7 @@ function msgNode(m) {
 }
 
 // ---- tool cards
-function summarize(b) {
-  const i = b.input || {};
-  const first = (s) => String(s ?? '').split('\n')[0].slice(0, 140);
-  switch (b.name) {
-    case 'Bash': return first(i.command);
-    case 'Read': case 'Write': case 'Edit': case 'MultiEdit': case 'NotebookEdit': return first(i.file_path || i.notebook_path);
-    case 'Grep': return first(`${i.pattern ?? ''}${i.path ? `  in ${i.path}` : ''}`);
-    case 'Glob': return first(i.pattern);
-    case 'WebFetch': return first(i.url);
-    case 'WebSearch': return first(i.query);
-    case 'Task': case 'Agent': return first(i.description);
-    case 'TodoWrite': return `${(i.todos || []).length} items`;
-    default: { const v = Object.values(i).find((x) => typeof x === 'string'); return first(v); }
-  }
-}
+const summarize = (b) => toolSummary(b.name, b.input);
 const lines = (s, n) => { const a = String(s ?? '').split('\n'); return a.length > n ? `${a.slice(0, n).join('\n')}\n… (${a.length - n} more lines)` : a.join('\n'); };
 function diffBlock(oldS, newS) {
   const pre = h('pre');
@@ -282,6 +334,32 @@ function toolCard(b) {
   d.addEventListener('toggle', () => { d.open ? S.open.add(b.id) : S.open.delete(b.id); });
   return d;
 }
+
+// ---- live activity: what Claude is doing right now (status line + this turn's latest steps)
+const elapsed = (since) => {
+  const sec = Math.max(0, Math.floor((Date.now() - since) / 1000));
+  return sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${sec % 60}s`;
+};
+function renderActivity() {
+  const box = $('#activity');
+  box.replaceChildren();
+  const id = S.cur?.thread.id;
+  if (!id || !S.busy.has(id)) return;
+  const a = S.activity.get(id) || { now: 'Working…', since: Date.now(), steps: [] };
+  const mark = { ok: '✓', error: '✗' };
+  box.append(
+    h('div', { class: 'act-now' },
+      h('span', { class: 'act-text' }, a.now || 'Finishing…'),
+      h('span', { class: 'act-time', 'data-since': String(a.since) }, elapsed(a.since))),
+    a.steps.length ? h('ol', { class: 'act-steps' }, a.steps.map((st) =>
+      h('li', { class: `step-${st.status}${st.sub ? ' sub' : ''}` }, h('span', { class: 'mark' }, mark[st.status] || '•'), h('span', { class: 'txt' }, st.text)))) : null,
+  );
+  scrollToBottom();
+}
+setInterval(() => {
+  const t = document.querySelector('#activity .act-time');
+  if (t) t.textContent = elapsed(Number(t.dataset.since));
+}, 1000);
 
 // ---- permission cards
 function renderPerms() {
@@ -368,7 +446,7 @@ function fillNetwork(body) {
 
 // ------------------------------------------------------------------ data flow
 function renderAll() {
-  renderSidebar(); renderHeader(); renderComposer(); renderMessages(); renderPerms();
+  renderSidebar(); renderHeader(); renderComposer(); renderMessages(); renderActivity(); renderPerms();
   if (S.drawer) fillDrawer();
   scrollToBottom(true);
 }
@@ -377,17 +455,20 @@ async function refreshState() {
   Object.assign(S, { projects: st.projects, threads: st.threads, models: st.models, modes: st.modes, mock: st.mock, guard: st.guard });
   S.perms = new Map(st.perms.map((p) => [p.id, p]));
   S.busy = new Set(st.threads.filter((t) => t.busy).map((t) => t.id));
+  for (const id of S.activity.keys()) if (!S.busy.has(id)) S.activity.delete(id);
   if (S.cur) {
     const t = st.threads.find((x) => x.id === S.cur.thread.id);
     if (t) S.cur.thread = t; else S.cur = null;
   }
-  renderSidebar(); renderHeader(); renderComposer(); renderPerms();
+  renderSidebar(); renderHeader(); renderComposer(); renderActivity(); renderPerms();
   if (!S.cur) { renderMessages(); }
   if (S.drawer === 'network') fillDrawer();
 }
 async function openThread(id) {
   const r = await api('GET', `/api/threads/${id}`);
   S.cur = { thread: r.thread, messages: r.messages };
+  if (S.attach.length) { S.attach = []; renderAttachments(); }   // picked files belong to the thread they were picked in
+  if (r.activity) S.activity.set(id, r.activity); else S.activity.delete(id);
   lsSet('ch.last', id);
   S.stick = true;
   renderAll();
@@ -404,7 +485,12 @@ function handleEvent(msg) {
     case 'state': refreshState().catch(() => {}); break;
     case 'busy':
       msg.busy ? S.busy.add(msg.threadId) : S.busy.delete(msg.threadId);
-      renderSidebar(); renderComposer();
+      if (!msg.busy) S.activity.delete(msg.threadId);
+      renderSidebar(); renderComposer(); renderActivity();
+      break;
+    case 'activity':
+      S.activity.set(msg.threadId, msg.activity);
+      if (S.cur?.thread.id === msg.threadId) renderActivity();
       break;
     case 'perm':
       S.perms.set(msg.perm.id, msg.perm);
