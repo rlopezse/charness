@@ -10,22 +10,8 @@ import CharnessCore
 
 /// Getting the server going, done off the main thread.
 enum Startup {
-    /// The previous app ran the Node server through scripts/launch.sh. Stop one it may have left running, so
-    /// two servers never write the same data.
-    static func stopLeftoverNodeServer(root: String) {
-        let script = root + "/scripts/launch.sh"
-        guard FileManager.default.fileExists(atPath: script) else { return }
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/bin/bash")
-        p.arguments = [script, "stop"]
-        p.standardInput = FileHandle.nullDevice
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        if (try? p.run()) != nil { p.waitUntilExit() }
-    }
-
     /// Apps don't see what you `export` in Terminal: if ANTHROPIC_API_KEY isn't set, read it from the Keychain
-    /// (item "charness"), as launch.sh did. Without one, Claude Code uses its own login on this Mac.
+    /// (item "charness"). Without one, Claude Code uses its own login on this Mac.
     static func environment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         guard (env["ANTHROPIC_API_KEY"] ?? "").isEmpty else { return env }
@@ -44,9 +30,8 @@ enum Startup {
         return env
     }
 
-    /// Starts the server on the first free port from 4317 (as launch.sh did).
+    /// Starts the server on the first free port from 4317.
     static func start(root: String) -> Result<CharnessServer, Error> {
-        stopLeftoverNodeServer(root: root)
         var config = ServerConfig(root: URL(fileURLWithPath: root, isDirectory: true), environment: environment())
         let first = config.port
         for port in first...(first + 20) {

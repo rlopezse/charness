@@ -9,18 +9,23 @@ The 📎 button attaches files of any kind (up to 10 per message, 25 MB each). T
 `~/.charness/uploads/<thread>/` (not in your project), Claude gets read access to that folder and their paths,
 and they are deleted with the thread. They are never served back to the browser.
 
-It drives Claude through the official Claude Agent SDK, which runs the Claude Code binary as a child
-process. This repo adds a UI and a lot of locks around that process.
+It runs the Claude Code binary (closed-source; the one the official Claude Agent SDK ships) as a child
+process and talks to it over its stream-json protocol from a small Swift server, with no other code in
+between. This repo adds a UI and a lot of locks around that process.
 
 ## Run it
 
+Needs Swift 5.9+ (macOS: the Command Line Tools, `xcode-select --install`; Linux: a swift.org toolchain) and
+Node 20+ (only to download the Claude Code binary and to run the end-to-end test).
+
 ```bash
-npm install          # Node 20+. One dependency: @anthropic-ai/claude-agent-sdk (pinned)
+npm install          # downloads the Claude Code binary (@anthropic-ai/claude-agent-sdk, pinned)
 export ANTHROPIC_API_KEY=sk-ant-...      # or be logged in to Claude Code already (see "Auth")
-npm start            # prints  http://127.0.0.1:4317/?token=...  — open that link once
+npm start            # builds and runs the Swift server; prints  http://127.0.0.1:4317/?token=...  — open it once
 ```
 
-Try it without any model or key: `npm run mock`. Run the checks: `npm test`.
+Try it without any model or key: `npm run mock`. Run the checks: `npm test` (end to end) and `npm run check`
+(the Swift self-test). On a Mac, the app below is the easier way.
 
 Add a project folder in the sidebar (type its path), press **+** for a thread, and chat.
 
@@ -67,11 +72,10 @@ npm install                        # once: downloads the Claude Code binary the 
 ./scripts/make-mac-app.sh          # builds  ~/Applications/Charness.app
 ```
 
-Double-click the app: the Charness server runs inside it (Swift; no Node at run time) and the UI opens in its own
-native window. **Cmd-Q (or Dock → Quit) stops it.** Closing the window keeps it running; clicking the Dock icon
-brings the same window back. The app points at this folder, so keep it where it is (re-run the script if you
-move it). It uses the same data as `npm start` (`~/.charness`), so you can switch between them; on launch it stops
-a Node server the previous version of the app may have left running.
+Double-click the app: the Charness server runs inside it and the UI opens in its own native window.
+**Cmd-Q (or Dock → Quit) stops it.** Closing the window keeps it running; clicking the Dock icon brings the same
+window back. The app points at this folder, so keep it where it is (re-run the script if you move it). It uses
+the same data as `npm start` (`~/.charness`); don't run both at the same time.
 
 * **API key:** apps don't see what you `export` in Terminal. Store the key once in the Keychain instead
   (it asks you to type it; macOS may ask "Always Allow" the first time the app reads it):
@@ -82,18 +86,19 @@ a Node server the previous version of the app may have left running.
   extensions can read your chats and no extra tabs or windows pile up. Edit menu, ⌘R reload and ⌘= / ⌘- / ⌘0 zoom work.
   Web Inspector, if you need it: `defaults write local.charness.app CharnessInspectable -bool true`.
 * The built-in Mac permission prompts (Documents, Desktop…) appear for folders you add as projects. That's macOS.
-* **Swift checks** (Command Line Tools are enough, no Xcode): `swift run --package-path mac core-checks` tests the
-  Swift port; `swift run --package-path mac charness-check` compares your real `~/.charness` with what the Swift
-  store would write. It only reads: it never changes a file and never prints chat contents.
-  `swift run --package-path mac claude-spike "your prompt"` runs one turn with the real Claude Code straight from
-  Swift (no Node, no Agent SDK), asking approvals in the terminal; Ctrl-C stops it. It skips the egress guard.
-  Add `--mock` to use the built-in mock instead of Claude (like `npm run mock`).
-* **The Swift server** (`mac/Sources/CharnessCore/Server.swift`) is a port of `server.mjs`; `npm run test:swift`
-  runs `test/smoke.mjs` against it and `test/compare-servers.mjs`, which replays one session on both servers and
-  requires the same replies, live events and files on disk. `swift run --package-path mac charness-server` runs it
-  in the terminal with the same flags as `node server.mjs`.
-* The Swift server, the HTTP layer, the guard and all checks were built and run on Linux by me; the app itself
-  (AppKit, the Keychain, `codesign`) only builds and runs on a Mac.
+* **Tools** (Command Line Tools are enough, no Xcode): `swift run --package-path mac charness-check` checks your
+  real `~/.charness` against the store (read-only: it never changes a file or prints chat contents);
+  `swift run --package-path mac claude-spike "your prompt"` runs one turn with the real Claude Code in the
+  terminal, asking approvals there (Ctrl-C stops it; no egress guard; `--mock` for the mock).
+* The server, the HTTP layer, the guard and all checks build and run on Linux too; the app itself (AppKit, the
+  Keychain, `codesign`) only on a Mac.
+
+## History
+
+Until November 2026 the server was Node (`server.mjs`, `lib/*.mjs`, driving Claude Code through the Agent SDK).
+It was ported to Swift step by step and checked against the Node version all along (same replies, live events
+and files on disk); see `SWIFT_PORT_PLAN.md`. The Node code is in git history. What the Node version did is kept
+as expected results in `mac/Fixtures` (recorded turns, guard answers, the environment allow-list).
 
 ## Settings (environment variables / flags)
 
@@ -110,29 +115,28 @@ a Node server the previous version of the app may have left running.
 | `HARNESS_ALLOW_FULL_ACCESS=1` | adds the no-prompt mode |
 | `HARNESS_HOME` | data dir (default `~/.charness`) |
 
-Models in the dropdown are listed in `server.mjs` (`MODELS`); "Default" lets Claude Code choose.
+Models in the dropdown are listed in `mac/Sources/CharnessCore/Server.swift` (`models`); "Default" lets Claude
+Code choose. `npm start -- --port 4400` (or `swift run --package-path mac charness-server --port 4400`) passes flags.
 
 ## Layout
 
 ```
-server.mjs        HTTP + SSE server, auth, routes            (~430)
-lib/agent.mjs     Agent SDK bridge, env allow-list, mock     (~200)
-lib/guard.mjs     egress guard (CONNECT proxy)               (~95)
-lib/store.mjs     JSON persistence                           (~70)
-lib/uploads.mjs   attached files (per-thread folder, safe names)
-public/           index.html, app.js, md.js, reduce.js, style.css
-mac/              Swift package (see mac/Package.swift and SWIFT_PORT_PLAN.md); Charness.app runs its server
-  Sources/Charness       native macOS window (AppKit + WKWebView)
-  Sources/CharnessCore   Foundation-only ports of the Node code: JSON.swift, Store.swift (lib/store.mjs),
-                         ClaudeProcess.swift + Turn.swift (lib/agent.mjs: talks to Claude Code directly),
-                         Mock.swift (the mock backend), Reducer.swift (public/reduce.js),
-                         Guard.swift (lib/guard.mjs), Uploads.swift (lib/uploads.mjs),
-                         HTTP.swift + Server.swift (server.mjs)
-  Sources/charness-server the Swift server as a terminal program (same flags as server.mjs)
-  Sources/claude-spike   one turn with the real Claude Code from Swift, in the terminal
-  Sources/core-checks    self-test (fixtures in mac/Fixtures are real Node output)
-  Sources/charness-check read-only check of your data against the Swift store
-scripts/          launch.sh (start/stop for the app), make-mac-app.sh (builds mac/ into Charness.app)
-test/smoke.mjs    29 end-to-end checks in mock mode (CHARNESS_SERVER=... runs them on the Swift server)
-test/compare-servers.mjs  same session on the Node and Swift servers; replies, events and files must match
+public/           the web UI: index.html, app.js, md.js, reduce.js, style.css (no framework, no build)
+mac/              Swift package (no third-party packages)
+  Sources/CharnessCore   everything but the window, Foundation only (macOS and Linux):
+                           Server.swift + HTTP.swift   HTTP + SSE server, auth, routes
+                           ClaudeProcess.swift         runs claude over stream-json, permission prompts
+                           Turn.swift                  one turn: UI events, live activity, env allow-list
+                           Mock.swift                  the mock backend (npm run mock)
+                           Reducer.swift               twin of public/reduce.js (saving threads)
+                           Guard.swift                 egress guard (CONNECT proxy)
+                           Store.swift + JSON.swift    JSON persistence, byte-compatible with JavaScript
+                           Uploads.swift               attached files
+  Sources/Charness       the macOS app: the server in-process + a WKWebView window
+  Sources/charness-server the server in a terminal (npm start)
+  Sources/core-checks    self-test (npm run check); expected results in mac/Fixtures
+  Sources/charness-check read-only check of your data
+  Sources/claude-spike   one real turn in the terminal
+scripts/          make-mac-app.sh (builds Charness.app)
+test/smoke.mjs    29 end-to-end checks against the server in mock mode (npm test)
 ```

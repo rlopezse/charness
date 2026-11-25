@@ -1,11 +1,11 @@
-// Swift port of lib/guard.mjs: the egress guard. A tiny local HTTPS CONNECT proxy that only tunnels to hosts
+// The egress guard (ported from lib/guard.mjs, the retired Node version). A tiny local HTTPS CONNECT proxy that only tunnels to hosts
 // you allow. Claude Code is started with HTTPS_PROXY pointing here, so every host it tries to reach is logged,
 // and anything not on the allow-list is refused. It never sees request contents (TLS passes straight through),
 // only "host:port".
 //
 // Built on plain POSIX sockets (not Network.framework) so it compiles and is tested on Linux too:
-// `swift run core-checks` sends the same requests to this guard and to the Node one (mac/Fixtures/
-// guard-peer.mjs) and requires the same answers and log entries.
+// `swift run core-checks` sends it the requests in mac/Fixtures/guard.json and requires the answers and log
+// entries the Node guard gave (recorded before it was retired).
 //
 // Honest limit (same as the Node version): proxy variables are advisory. For hard enforcement, also run the
 // whole thing in a container/VM or behind a firewall.

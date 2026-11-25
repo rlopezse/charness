@@ -219,7 +219,7 @@ async function onSendClick() {
 }
 
 // ------------------------------------------------------------------ attachments
-const MAX_FILE_BYTES = 25 * 1024 * 1024;   // same limits as lib/uploads.mjs
+const MAX_FILE_BYTES = 25 * 1024 * 1024;   // same limits as the server (Uploads.swift)
 const MAX_FILES = 10;
 const fmtSize = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 const fileIcon = (name) => (/\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name) ? '🖼' : /\.pdf$/i.test(name) ? '📕' : '📄');

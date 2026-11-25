@@ -1,7 +1,7 @@
-// Swift port of runTurn() in lib/agent.mjs: one user turn with Claude Code. Turns the stream of SDK messages
+// One user turn (ported from runTurn() in lib/agent.mjs, the retired Node version) with Claude Code. Turns the stream of SDK messages
 // into the same UI events (the shapes public/reduce.js folds into a thread) and the same live activity feed,
 // and routes permission prompts to the host. mac/Fixtures/turns/*.json hold what the Node version reports for
-// the same runs; `swift run core-checks` requires this to report exactly the same.
+// the same runs (recorded before it was retired); `swift run core-checks` requires exactly the same.
 
 import Foundation
 

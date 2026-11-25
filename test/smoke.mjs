@@ -1,4 +1,4 @@
-// End-to-end smoke test in MOCK mode: no network, no API key, temp data dir.
+// End-to-end smoke test of the Charness server (Swift) in MOCK mode: no network, no API key, temp data dir.
 // Checks the security gates, the thread/permission flow, persistence, and the egress guard.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -21,14 +21,11 @@ await new Promise((r) => echo.once('listening', r));
 const echoPort = echo.address().port;
 let sse = null;            // live-event stream, opened once we have the cookie
 
-// CHARNESS_SERVER=<binary> runs the same checks against another server, e.g. the Swift one
-// (mac/.build/debug/charness-server); by default the Node server is tested.
-const SERVER = process.env.CHARNESS_SERVER;
-const [cmd, cmdArgs] = SERVER
-  ? [SERVER, ['--root', ROOT, '--mock', '--port', String(PORT)]]
-  : [process.execPath, [path.join(ROOT, 'server.mjs'), '--mock', '--port', String(PORT)]];
-console.log(`server: ${SERVER || 'node server.mjs'}`);
-const child = spawn(cmd, cmdArgs, {
+// The Swift server (`npm test` builds it first); CHARNESS_SERVER=<binary> tests another build.
+const SERVER = process.env.CHARNESS_SERVER || path.join(ROOT, 'mac', '.build', 'debug', 'charness-server');
+if (!fs.existsSync(SERVER)) { console.error(`No server binary at ${SERVER}. Run: npm test (it builds it first)`); process.exit(1); }
+console.log(`server: ${path.relative(ROOT, SERVER) || SERVER}`);
+const child = spawn(SERVER, ['--root', ROOT, '--mock', '--port', String(PORT)], {
   env: { ...process.env, HARNESS_HOME: path.join(tmp, 'home'), HARNESS_UPSTREAM_PROXY: '', HTTPS_PROXY: '', https_proxy: '', HARNESS_ALLOW_HOSTS: `127.0.0.1:${echoPort}` },
   stdio: ['ignore', 'pipe', 'inherit'],
 });

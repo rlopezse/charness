@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // A stand-in for the `claude` binary that speaks Claude Code's stream-json protocol, as captured from the
 // official Agent SDK (0.3.331) driving it. Lets the Swift client be tested with no network, no API key and no
-// real binary, and is checked against the real SDK by make-turn-fixtures.mjs (the SDK drives it there).
+// real binary. It was checked against the real Agent SDK (which drove it to record mac/Fixtures/turns) before
+// the Node version was retired.
 //
 // It is strict on purpose: a missing flag, a missing CLAUDE_CODE_ENTRYPOINT, a user message before
 // `initialize`, or a host that never closes stdin after the result make it fail loudly (stderr + exit code).

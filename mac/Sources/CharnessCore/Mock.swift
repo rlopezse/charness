@@ -1,4 +1,4 @@
-// Swift port of mockQuery() in lib/agent.mjs (`npm run mock`): a pretend Claude Code that sends the same
+// The mock backend (`npm run mock`; ported from mockQuery() in the retired lib/agent.mjs): a pretend Claude Code that sends the same
 // messages as the real one, with no process, no network and no API key. It lets you try the UI and test the
 // permission flow safely. `swift run core-checks` requires it to produce exactly what the Node mock produces
 // (mac/Fixtures/turns/mock-*.json), apart from its random ids.

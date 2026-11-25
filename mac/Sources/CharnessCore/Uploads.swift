@@ -1,4 +1,4 @@
-// Swift port of lib/uploads.mjs: files attached to a message. Kept per thread in <data>/uploads/<threadId>/
+// Files attached to a message. Kept per thread in <data>/uploads/<threadId>/
 // (folders 0700, files 0600), outside the project so nothing lands in the user's repo. Claude gets read access
 // to that folder (--add-dir) and the message lists the files' paths. Never served back to the browser.
 //
@@ -24,7 +24,7 @@ public struct Uploads {
     public func dir(_ threadId: String) -> String { root + "/" + threadId }
 
     /// A file name that is safe to store: no folders, no control characters, no hidden files, not too long.
-    /// Same rules as safeName() in lib/uploads.mjs.
+    /// Same rules as safeName() in the retired lib/uploads.mjs.
     public static func safeName(_ raw: String) -> String {
         var n = String(raw.split(omittingEmptySubsequences: false, whereSeparator: { $0 == "/" || $0 == "\\" }).last ?? "")
         let bad: Set<Unicode.Scalar> = ["<", ">", ":", "\"", "|", "?", "*"]
