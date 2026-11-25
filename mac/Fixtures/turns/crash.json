@@ -1,0 +1,88 @@
+[
+ {
+  "kind": "activity",
+  "now": "Starting Claude Code…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "session",
+   "sessionId": "fake-session-1",
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": []
+ },
+ {
+  "kind": "activity",
+  "now": "Writing…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Fake "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Claude "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "(acceptEdits, "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "claude-sonnet-5-5). "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "You "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "said: "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "crash "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "please\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "error",
+   "text": "Claude Code process exited with code 3\n\nfatal: the fake model fell over"
+  }
+ }
+]

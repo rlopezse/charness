@@ -2,6 +2,12 @@
 
 A small local GUI for Claude, laid out like T3 Code (projects → threads → chat, with approvals, a
 git "Changes" panel and a mode/model picker) but **Claude only** and built so you can read all of it.
+While Claude works, a live status line shows what it is doing right now (thinking, writing, the command
+it is running and for how long, waiting for your approval) above a short log of this turn's steps,
+including the ones sub-agents take. That feed is live only; it is not saved with the thread.
+The 📎 button attaches files of any kind (up to 10 per message, 25 MB each). They are stored per thread in
+`~/.charness/uploads/<thread>/` (not in your project), Claude gets read access to that folder and their paths,
+and they are deleted with the thread. They are never served back to the browser.
 
 It drives Claude through the official Claude Agent SDK, which runs the Claude Code binary as a child
 process. This repo adds a UI and a lot of locks around that process.
@@ -76,6 +82,9 @@ stops the server.** Closing the window keeps the server running; clicking the Do
 * **Swift checks** (Command Line Tools are enough, no Xcode): `swift run --package-path mac core-checks` tests the
   Swift port; `swift run --package-path mac charness-check` compares your real `~/.charness` with what the Swift
   store would write. It only reads: it never changes a file and never prints chat contents.
+  `swift run --package-path mac claude-spike "your prompt"` runs one turn with the real Claude Code straight from
+  Swift (no Node, no Agent SDK), asking approvals in the terminal; Ctrl-C stops it. It skips the egress guard.
+  Add `--mock` to use the built-in mock instead of Claude (like `npm run mock`).
 * Only the Linux-testable parts (`scripts/launch.sh`: start/stop, port fallback, Node discovery, error messages)
   were run by me; the Swift app, `swiftc`, `codesign` and Keychain run only on a Mac.
 
@@ -103,10 +112,14 @@ server.mjs        HTTP + SSE server, auth, routes            (~430)
 lib/agent.mjs     Agent SDK bridge, env allow-list, mock     (~200)
 lib/guard.mjs     egress guard (CONNECT proxy)               (~95)
 lib/store.mjs     JSON persistence                           (~70)
+lib/uploads.mjs   attached files (per-thread folder, safe names)
 public/           index.html, app.js, md.js, reduce.js, style.css
 mac/              Swift package (see mac/Package.swift and SWIFT_PORT_PLAN.md)
   Sources/Charness       native macOS window (AppKit + WKWebView)
-  Sources/CharnessCore   Foundation-only ports of the Node code: JSON.swift, Store.swift (lib/store.mjs)
+  Sources/CharnessCore   Foundation-only ports of the Node code: JSON.swift, Store.swift (lib/store.mjs),
+                         ClaudeProcess.swift + Turn.swift (lib/agent.mjs: talks to Claude Code directly),
+                         Mock.swift (the mock backend)
+  Sources/claude-spike   one turn with the real Claude Code from Swift, in the terminal
   Sources/core-checks    self-test (fixtures in mac/Fixtures are real Node output)
   Sources/charness-check read-only check of your data against the Swift store
 scripts/          launch.sh (start/stop for the app), make-mac-app.sh (builds mac/ into Charness.app)

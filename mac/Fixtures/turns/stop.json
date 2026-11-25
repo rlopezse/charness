@@ -1,0 +1,159 @@
+[
+ {
+  "kind": "activity",
+  "now": "Starting Claude Code…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "session",
+   "sessionId": "fake-session-1",
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": []
+ },
+ {
+  "kind": "activity",
+  "now": "Writing…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Fake "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Claude "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "(acceptEdits, "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "claude-sonnet-5-5). "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "You "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "said: "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "a "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "slow "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "command\n\n"
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Preparing Bash…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_use",
+   "id": "toolu_A",
+   "name": "Bash",
+   "input": {
+    "command": "sleep 100",
+    "description": "List files"
+   }
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: sleep 100",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: sleep 100",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Waiting for your approval: Bash",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: sleep 100",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "permission",
+  "name": "Bash",
+  "input": {
+   "command": "sleep 100",
+   "description": "List files"
+  },
+  "toolUseID": "toolu_A",
+  "title": "Claude wants to use Bash",
+  "description": "Run a command"
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: sleep 100",
+  "steps": [
+   {
+    "id": "toolu_A",
+    "text": "Bash: sleep 100",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "error",
+   "text": "Stopped."
+  }
+ }
+]

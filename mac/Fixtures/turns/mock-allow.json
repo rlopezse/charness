@@ -1,0 +1,839 @@
+[
+ {
+  "kind": "activity",
+  "now": "Starting Claude Code…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "session",
+   "sessionId": "$SESSION_1",
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": []
+ },
+ {
+  "kind": "activity",
+  "now": "Writing…",
+  "steps": []
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Mock "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "mode "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "(default) "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "— "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "no "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "real "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "model "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "is "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "called "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "here.\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "You "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "said: "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "**hello "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "there**\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Here's "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "some "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "formatting "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "to "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "check "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "the "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "renderer:\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "- "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "a "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "list "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "item "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "with "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "`inline "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "code`\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "- "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "another "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "with "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "a "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "[link](https://example.com)\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "| "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Tool "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "| "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Needs "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "approval "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "|\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "|------|----------------|\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "| "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Read "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "| "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "no "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "|\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "| "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Bash "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "| "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "yes "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "|\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "```js\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "console.log(\"hello "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "from "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "a "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "code "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "block\");\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "```\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "Now "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "I'll "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "run "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "a "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "command.\n\n"
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_use",
+   "id": "$TOOLU_1",
+   "name": "Bash",
+   "input": {
+    "command": "ls -la",
+    "description": "List files"
+   }
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: ls -la",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Waiting for your approval: Bash",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "permission",
+  "name": "Bash",
+  "input": {
+   "command": "ls -la",
+   "description": "List files"
+  },
+  "toolUseID": "$TOOLU_1",
+  "title": "Claude wants to use Bash"
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: ls -la",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "Bash: ls -la",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_result",
+   "id": "$TOOLU_1",
+   "output": "total 8\ndrwxr-xr-x  2 you you 4096 .\n-rw-r--r--  1 you you   12 hello.txt",
+   "isError": false
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_use",
+   "id": "$TOOLU_2",
+   "name": "Task",
+   "input": {
+    "description": "Look around the project",
+    "prompt": "List and read the files.",
+    "subagent_type": "Explore"
+   }
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Task: Look around the project",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Glob: **/*",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "$TOOLU_3",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Glob: **/*",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "$TOOLU_3",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Read: $CWD/hello.txt",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "$TOOLU_3",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_4",
+    "text": "Read: $CWD/hello.txt",
+    "sub": true,
+    "status": "running"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Read: $CWD/hello.txt",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "running"
+   },
+   {
+    "id": "$TOOLU_3",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_4",
+    "text": "Read: $CWD/hello.txt",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "activity",
+  "now": "↳ Read: $CWD/hello.txt",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_3",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_4",
+    "text": "Read: $CWD/hello.txt",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "tool_result",
+   "id": "$TOOLU_2",
+   "output": "One file, hello.txt, containing \"hello world\".",
+   "isError": false
+  }
+ },
+ {
+  "kind": "activity",
+  "now": "Thinking…",
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_3",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_4",
+    "text": "Read: $CWD/hello.txt",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "All "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "done "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "— "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "that "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "ran "
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "delta",
+   "text": "fine."
+  }
+ },
+ {
+  "kind": "event",
+  "ev": {
+   "t": "end",
+   "cost": 0.0042,
+   "turns": 2,
+   "ms": 1234
+  }
+ },
+ {
+  "kind": "activity",
+  "now": null,
+  "steps": [
+   {
+    "id": "$TOOLU_1",
+    "text": "Bash: ls -la",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_2",
+    "text": "Task: Look around the project",
+    "sub": false,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_3",
+    "text": "Glob: **/*",
+    "sub": true,
+    "status": "ok"
+   },
+   {
+    "id": "$TOOLU_4",
+    "text": "Read: $CWD/hello.txt",
+    "sub": true,
+    "status": "ok"
+   }
+  ]
+ }
+]
