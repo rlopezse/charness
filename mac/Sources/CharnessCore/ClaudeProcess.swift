@@ -118,6 +118,8 @@ public protocol ClaudeBackend: AnyObject {
     var onProtocolError: (String) -> Void { get set }
     /// Shown in "Could not start Claude Code (…)".
     var label: String { get }
+    /// Whether nothing more is reported after stop() (true for the real Claude Code, like the SDK).
+    var stopsReportingOnStop: Bool { get }
     func start(prompt: String) throws
     func closeInput()
     func stop()
@@ -156,6 +158,7 @@ public final class ClaudeProcess: ClaudeBackend, @unchecked Sendable {
     public init(launch: ClaudeLaunch) { self.launch = launch }
 
     public var label: String { launch.executable }
+    public var stopsReportingOnStop: Bool { true }
 
     public var processIdentifier: Int32 { process.processIdentifier }
 

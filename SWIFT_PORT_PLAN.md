@@ -11,12 +11,36 @@ Node stays the working implementation (and the only writer of `~/.charness`) unt
 | 2 | Swift package in `mac/`; `store.mjs` → `CharnessCore/Store.swift` (+ `JSON.swift`), read-only for now | done |
 | 3 | Drive the `claude` binary over `stream-json` from Swift, incl. permission prompts (go / no-go) | done: **go** (verified on the Mac) |
 | 4 | Child env allow-list (`buildEnv`/`baseEnv`) and mock backend (`npm run mock` without Node) | done |
-| 5 | Reducer (`reduce.js`) with golden tests against the JS version | next |
-| 6 | Egress guard on Network.framework | |
-| 7-8 | Swap-over: Swift answers `/api` for the existing web UI; Node no longer needed | |
-| 9 | Git Changes panel | |
+| 5 | Reducer (`reduce.js`) with golden tests against the JS version | done |
+| 6 | Egress guard (POSIX sockets, so it is tested on Linux too) | done |
+| 7-8 | Swap-over: Swift answers `/api` for the existing web UI; Node no longer needed | done (the app runs the Swift server) |
+| 9 | Git Changes panel | done early (part of the server port) |
 | 10-14 | Native SwiftUI screens (optional) | |
 | 15 | Tests and packaging | |
+
+Days 7-8 notes: `HTTP.swift` (loopback HTTP/1.1, chunked bodies, SSE) and `Server.swift` port `server.mjs`
+route by route, including the read-only git panel (so day 9 is done too) and attachments (`Uploads.swift`).
+Charness.app now runs that server in-process: no `launch.sh`, no Node at run time (Claude Code is still the
+binary `npm install` downloads). Checked two ways, on Linux: `test/smoke.mjs` (all 29 checks) against the Swift
+server, and `test/compare-servers.mjs`, which replays one session (approve, deny, rename, attach, stop,
+allow-list, git, bad input) on both servers and requires identical API replies (31), live events (322, in
+order) and files on disk. That caught two real differences, fixed: the activity timer's `since` had a fraction
+of a millisecond, and Stop in mock mode must still report the step it interrupted, as the Node mock does.
+
+Day 6 notes: `Guard.swift` ports `lib/guard.mjs` on plain POSIX sockets instead of Network.framework, which
+only exists on Apple systems and so could not be built or tested anywhere else. `mac/Fixtures/guard-peer.mjs`
+starts the real Node guard (direct, and chained through a fake corporate proxy that requires a login) next
+to the Swift one; the same 20 requests go to both (allowed, refused, wildcard and port rules, malformed and
+oversized requests, plain HTTP, bytes sent right after CONNECT, the proxy's login and its refusal) and must get
+the same answers, log entries and proxy requests. Plain-HTTP refusals are compared by status and body: Node
+adds a Date header and keeps the connection open, Swift closes it.
+
+Day 5 notes: `Reducer.swift` ports `apply()` from `public/reduce.js` (`toolSummary()` was ported on day 3).
+`mac/Fixtures/reducer.json` (made by `make-reducer-fixtures.mjs` with the real JS) replays every recorded
+turn plus edge cases (29 sequences, 314 events): Swift returns the same changed-message index after every
+event and writes byte-identical threads; `toolSummary()` matches on 25 cases. Streamed text grows in place,
+so a 1 MB answer folds in well under a second (copying it per word would take seconds to minutes).
+When `reduce.js` changes, regenerate `reducer.json` and update `Reducer.swift`.
 
 Day 4 notes: `Mock.swift` ports `mockQuery()`; a turn now takes any `ClaudeBackend` (the real process or the
 mock). The Swift mock reproduces the Node mock's events, activity and prompts exactly (approve + sub-agent,

@@ -98,6 +98,13 @@ public struct ThreadFile: Equatable {
         get { raw["messages"]?.arrayValue ?? [] }
         set { raw["messages"] = .array(newValue) }
     }
+
+    /// Folds one agent event into the messages, in place (see Reducer). Returns the changed message's index.
+    @discardableResult
+    public mutating func apply(_ ev: JSONValue) -> Int {
+        if raw["messages"]?.arrayValue == nil { raw["messages"] = [] }
+        return raw.modify("messages") { v in v.modifyArray { Reducer.apply(&$0, ev) } ?? -1 } ?? -1
+    }
 }
 
 public enum StoreError: Error, CustomStringConvertible {
@@ -205,9 +212,12 @@ public final class Store: @unchecked Sendable {   // all mutable fields are only
     public func updateThread<T>(_ id: String, _ change: (inout ThreadFile) throws -> T) throws -> T {
         guard !readOnly else { throw StoreError.readOnly }
         return try queue.sync {
-            var file = try load(id)
+            _ = try load(id)
+            // take the file out of the cache while it changes, so big values in it (a long answer's text)
+            // are changed in place instead of copied
+            var file = cache.removeValue(forKey: id)!
+            defer { cache[id] = file }
             let result = try change(&file)
-            cache[id] = file
             dirty.insert(id)
             if !messagesDue {
                 messagesDue = true

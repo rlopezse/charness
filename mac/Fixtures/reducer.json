@@ -1,0 +1,2237 @@
+{
+ "sequences": [
+  {
+   "name": "turn allow",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "fake-session-1",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Fake "
+    },
+    {
+     "t": "delta",
+     "text": "Claude "
+    },
+    {
+     "t": "delta",
+     "text": "(acceptEdits, "
+    },
+    {
+     "t": "delta",
+     "text": "claude-sonnet-5-5). "
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "list "
+    },
+    {
+     "t": "delta",
+     "text": "the "
+    },
+    {
+     "t": "delta",
+     "text": "files\n\n"
+    },
+    {
+     "t": "tool_use",
+     "id": "toolu_A",
+     "name": "Bash",
+     "input": {
+      "command": "ls",
+      "description": "List files"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "toolu_A",
+     "output": "file-a\nfile-b",
+     "isError": false
+    },
+    {
+     "t": "tool_use",
+     "id": "toolu_T",
+     "name": "Task",
+     "input": {
+      "description": "Look around",
+      "prompt": "Read the files",
+      "subagent_type": "Explore"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "toolu_T",
+     "output": "Two files.",
+     "isError": false
+    },
+    {
+     "t": "delta",
+     "text": "All "
+    },
+    {
+     "t": "delta",
+     "text": "done "
+    },
+    {
+     "t": "delta",
+     "text": "— "
+    },
+    {
+     "t": "delta",
+     "text": "\"quotes\", "
+    },
+    {
+     "t": "delta",
+     "text": "ñ, "
+    },
+    {
+     "t": "delta",
+     "text": "🚀."
+    },
+    {
+     "t": "end",
+     "cost": 0.0123,
+     "turns": 3,
+     "ms": 4321
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Fake Claude (acceptEdits, claude-sonnet-5-5). You said: list the files\\n\\n\"},{\"type\":\"tool\",\"id\":\"toolu_A\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\",\"description\":\"List files\"},\"status\":\"ok\",\"output\":\"file-a\\nfile-b\"},{\"type\":\"tool\",\"id\":\"toolu_T\",\"name\":\"Task\",\"input\":{\"description\":\"Look around\",\"prompt\":\"Read the files\",\"subagent_type\":\"Explore\"},\"status\":\"ok\",\"output\":\"Two files.\"},{\"type\":\"text\",\"text\":\"All done — \\\"quotes\\\", ñ, 🚀.\"}],\"done\":{\"cost\":0.0123,\"turns\":3,\"ms\":4321}}]"
+  },
+  {
+   "name": "turn crash",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "fake-session-1",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Fake "
+    },
+    {
+     "t": "delta",
+     "text": "Claude "
+    },
+    {
+     "t": "delta",
+     "text": "(acceptEdits, "
+    },
+    {
+     "t": "delta",
+     "text": "claude-sonnet-5-5). "
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "crash "
+    },
+    {
+     "t": "delta",
+     "text": "please\n\n"
+    },
+    {
+     "t": "error",
+     "text": "Claude Code process exited with code 3\n\nfatal: the fake model fell over"
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Fake Claude (acceptEdits, claude-sonnet-5-5). You said: crash please\\n\\n\"}]},{\"role\":\"system\",\"text\":\"Claude Code process exited with code 3\\n\\nfatal: the fake model fell over\"}]"
+  },
+  {
+   "name": "turn deny",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "prev-session-7",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Fake "
+    },
+    {
+     "t": "delta",
+     "text": "Claude "
+    },
+    {
+     "t": "delta",
+     "text": "(acceptEdits, "
+    },
+    {
+     "t": "delta",
+     "text": "claude-sonnet-5-5). "
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "edit "
+    },
+    {
+     "t": "delta",
+     "text": "the "
+    },
+    {
+     "t": "delta",
+     "text": "readme\n\n"
+    },
+    {
+     "t": "tool_use",
+     "id": "toolu_A",
+     "name": "Edit",
+     "input": {
+      "file_path": "$CWD/README.md",
+      "old_string": "old",
+      "new_string": "new"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "toolu_A",
+     "output": "The user denied this action. Do not retry it; ask what they would like instead.",
+     "isError": true
+    },
+    {
+     "t": "delta",
+     "text": "Understood, "
+    },
+    {
+     "t": "delta",
+     "text": "I "
+    },
+    {
+     "t": "delta",
+     "text": "did "
+    },
+    {
+     "t": "delta",
+     "text": "not "
+    },
+    {
+     "t": "delta",
+     "text": "do "
+    },
+    {
+     "t": "delta",
+     "text": "it."
+    },
+    {
+     "t": "end",
+     "cost": 0.0123,
+     "turns": 3,
+     "ms": 4321
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Fake Claude (acceptEdits, claude-sonnet-5-5). You said: edit the readme\\n\\n\"},{\"type\":\"tool\",\"id\":\"toolu_A\",\"name\":\"Edit\",\"input\":{\"file_path\":\"$CWD/README.md\",\"old_string\":\"old\",\"new_string\":\"new\"},\"status\":\"error\",\"output\":\"The user denied this action. Do not retry it; ask what they would like instead.\"},{\"type\":\"text\",\"text\":\"Understood, I did not do it.\"}],\"done\":{\"cost\":0.0123,\"turns\":3,\"ms\":4321}}]"
+  },
+  {
+   "name": "turn mock-allow",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "$SESSION_1",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Mock "
+    },
+    {
+     "t": "delta",
+     "text": "mode "
+    },
+    {
+     "t": "delta",
+     "text": "(default) "
+    },
+    {
+     "t": "delta",
+     "text": "— "
+    },
+    {
+     "t": "delta",
+     "text": "no "
+    },
+    {
+     "t": "delta",
+     "text": "real "
+    },
+    {
+     "t": "delta",
+     "text": "model "
+    },
+    {
+     "t": "delta",
+     "text": "is "
+    },
+    {
+     "t": "delta",
+     "text": "called "
+    },
+    {
+     "t": "delta",
+     "text": "here.\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "**hello "
+    },
+    {
+     "t": "delta",
+     "text": "there**\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "Here's "
+    },
+    {
+     "t": "delta",
+     "text": "some "
+    },
+    {
+     "t": "delta",
+     "text": "formatting "
+    },
+    {
+     "t": "delta",
+     "text": "to "
+    },
+    {
+     "t": "delta",
+     "text": "check "
+    },
+    {
+     "t": "delta",
+     "text": "the "
+    },
+    {
+     "t": "delta",
+     "text": "renderer:\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "- "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "list "
+    },
+    {
+     "t": "delta",
+     "text": "item "
+    },
+    {
+     "t": "delta",
+     "text": "with "
+    },
+    {
+     "t": "delta",
+     "text": "`inline "
+    },
+    {
+     "t": "delta",
+     "text": "code`\n"
+    },
+    {
+     "t": "delta",
+     "text": "- "
+    },
+    {
+     "t": "delta",
+     "text": "another "
+    },
+    {
+     "t": "delta",
+     "text": "with "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "[link](https://example.com)\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Tool "
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Needs "
+    },
+    {
+     "t": "delta",
+     "text": "approval "
+    },
+    {
+     "t": "delta",
+     "text": "|\n"
+    },
+    {
+     "t": "delta",
+     "text": "|------|----------------|\n"
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Read "
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "no "
+    },
+    {
+     "t": "delta",
+     "text": "|\n"
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Bash "
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "yes "
+    },
+    {
+     "t": "delta",
+     "text": "|\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "```js\n"
+    },
+    {
+     "t": "delta",
+     "text": "console.log(\"hello "
+    },
+    {
+     "t": "delta",
+     "text": "from "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "code "
+    },
+    {
+     "t": "delta",
+     "text": "block\");\n"
+    },
+    {
+     "t": "delta",
+     "text": "```\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "Now "
+    },
+    {
+     "t": "delta",
+     "text": "I'll "
+    },
+    {
+     "t": "delta",
+     "text": "run "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "command.\n\n"
+    },
+    {
+     "t": "tool_use",
+     "id": "$TOOLU_1",
+     "name": "Bash",
+     "input": {
+      "command": "ls -la",
+      "description": "List files"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "$TOOLU_1",
+     "output": "total 8\ndrwxr-xr-x  2 you you 4096 .\n-rw-r--r--  1 you you   12 hello.txt",
+     "isError": false
+    },
+    {
+     "t": "tool_use",
+     "id": "$TOOLU_2",
+     "name": "Task",
+     "input": {
+      "description": "Look around the project",
+      "prompt": "List and read the files.",
+      "subagent_type": "Explore"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "$TOOLU_2",
+     "output": "One file, hello.txt, containing \"hello world\".",
+     "isError": false
+    },
+    {
+     "t": "delta",
+     "text": "All "
+    },
+    {
+     "t": "delta",
+     "text": "done "
+    },
+    {
+     "t": "delta",
+     "text": "— "
+    },
+    {
+     "t": "delta",
+     "text": "that "
+    },
+    {
+     "t": "delta",
+     "text": "ran "
+    },
+    {
+     "t": "delta",
+     "text": "fine."
+    },
+    {
+     "t": "end",
+     "cost": 0.0042,
+     "turns": 2,
+     "ms": 1234
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Mock mode (default) — no real model is called here.\\n\\nYou said: **hello there**\\n\\nHere's some formatting to check the renderer:\\n\\n- a list item with `inline code`\\n- another with a [link](https://example.com)\\n\\n| Tool | Needs approval |\\n|------|----------------|\\n| Read | no |\\n| Bash | yes |\\n\\n```js\\nconsole.log(\\\"hello from a code block\\\");\\n```\\n\\nNow I'll run a command.\\n\\n\"},{\"type\":\"tool\",\"id\":\"$TOOLU_1\",\"name\":\"Bash\",\"input\":{\"command\":\"ls -la\",\"description\":\"List files\"},\"status\":\"ok\",\"output\":\"total 8\\ndrwxr-xr-x  2 you you 4096 .\\n-rw-r--r--  1 you you   12 hello.txt\"},{\"type\":\"tool\",\"id\":\"$TOOLU_2\",\"name\":\"Task\",\"input\":{\"description\":\"Look around the project\",\"prompt\":\"List and read the files.\",\"subagent_type\":\"Explore\"},\"status\":\"ok\",\"output\":\"One file, hello.txt, containing \\\"hello world\\\".\"},{\"type\":\"text\",\"text\":\"All done — that ran fine.\"}],\"done\":{\"cost\":0.0042,\"turns\":2,\"ms\":1234}}]"
+  },
+  {
+   "name": "turn mock-deny",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "prev-session-9",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Mock "
+    },
+    {
+     "t": "delta",
+     "text": "mode "
+    },
+    {
+     "t": "delta",
+     "text": "(acceptEdits). "
+    },
+    {
+     "t": "delta",
+     "text": "I'll "
+    },
+    {
+     "t": "delta",
+     "text": "make "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "small "
+    },
+    {
+     "t": "delta",
+     "text": "edit "
+    },
+    {
+     "t": "delta",
+     "text": "in "
+    },
+    {
+     "t": "delta",
+     "text": "`$FOLDER`.\n\n"
+    },
+    {
+     "t": "tool_use",
+     "id": "$TOOLU_1",
+     "name": "Edit",
+     "input": {
+      "file_path": "$CWD/hello.txt",
+      "old_string": "hello world",
+      "new_string": "hello, harness"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "$TOOLU_1",
+     "output": "The user denied this action. Do not retry it; ask what they would like instead.",
+     "isError": true
+    },
+    {
+     "t": "delta",
+     "text": "Understood, "
+    },
+    {
+     "t": "delta",
+     "text": "I "
+    },
+    {
+     "t": "delta",
+     "text": "did "
+    },
+    {
+     "t": "delta",
+     "text": "not "
+    },
+    {
+     "t": "delta",
+     "text": "run "
+    },
+    {
+     "t": "delta",
+     "text": "it."
+    },
+    {
+     "t": "end",
+     "cost": 0.0042,
+     "turns": 2,
+     "ms": 1234
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Mock mode (acceptEdits). I'll make a small edit in `$FOLDER`.\\n\\n\"},{\"type\":\"tool\",\"id\":\"$TOOLU_1\",\"name\":\"Edit\",\"input\":{\"file_path\":\"$CWD/hello.txt\",\"old_string\":\"hello world\",\"new_string\":\"hello, harness\"},\"status\":\"error\",\"output\":\"The user denied this action. Do not retry it; ask what they would like instead.\"},{\"type\":\"text\",\"text\":\"Understood, I did not run it.\"}],\"done\":{\"cost\":0.0042,\"turns\":2,\"ms\":1234}}]"
+  },
+  {
+   "name": "turn mock-plan",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "$SESSION_1",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Mock "
+    },
+    {
+     "t": "delta",
+     "text": "mode "
+    },
+    {
+     "t": "delta",
+     "text": "(plan) "
+    },
+    {
+     "t": "delta",
+     "text": "— "
+    },
+    {
+     "t": "delta",
+     "text": "no "
+    },
+    {
+     "t": "delta",
+     "text": "real "
+    },
+    {
+     "t": "delta",
+     "text": "model "
+    },
+    {
+     "t": "delta",
+     "text": "is "
+    },
+    {
+     "t": "delta",
+     "text": "called "
+    },
+    {
+     "t": "delta",
+     "text": "here.\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "**show "
+    },
+    {
+     "t": "delta",
+     "text": "me "
+    },
+    {
+     "t": "delta",
+     "text": "the "
+    },
+    {
+     "t": "delta",
+     "text": "plan**\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "Here's "
+    },
+    {
+     "t": "delta",
+     "text": "some "
+    },
+    {
+     "t": "delta",
+     "text": "formatting "
+    },
+    {
+     "t": "delta",
+     "text": "to "
+    },
+    {
+     "t": "delta",
+     "text": "check "
+    },
+    {
+     "t": "delta",
+     "text": "the "
+    },
+    {
+     "t": "delta",
+     "text": "renderer:\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "- "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "list "
+    },
+    {
+     "t": "delta",
+     "text": "item "
+    },
+    {
+     "t": "delta",
+     "text": "with "
+    },
+    {
+     "t": "delta",
+     "text": "`inline "
+    },
+    {
+     "t": "delta",
+     "text": "code`\n"
+    },
+    {
+     "t": "delta",
+     "text": "- "
+    },
+    {
+     "t": "delta",
+     "text": "another "
+    },
+    {
+     "t": "delta",
+     "text": "with "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "[link](https://example.com)\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Tool "
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Needs "
+    },
+    {
+     "t": "delta",
+     "text": "approval "
+    },
+    {
+     "t": "delta",
+     "text": "|\n"
+    },
+    {
+     "t": "delta",
+     "text": "|------|----------------|\n"
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Read "
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "no "
+    },
+    {
+     "t": "delta",
+     "text": "|\n"
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "Bash "
+    },
+    {
+     "t": "delta",
+     "text": "| "
+    },
+    {
+     "t": "delta",
+     "text": "yes "
+    },
+    {
+     "t": "delta",
+     "text": "|\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "```js\n"
+    },
+    {
+     "t": "delta",
+     "text": "console.log(\"hello "
+    },
+    {
+     "t": "delta",
+     "text": "from "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "code "
+    },
+    {
+     "t": "delta",
+     "text": "block\");\n"
+    },
+    {
+     "t": "delta",
+     "text": "```\n\n"
+    },
+    {
+     "t": "delta",
+     "text": "Now "
+    },
+    {
+     "t": "delta",
+     "text": "I'll "
+    },
+    {
+     "t": "delta",
+     "text": "run "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "command.\n\n"
+    },
+    {
+     "t": "tool_use",
+     "id": "$TOOLU_1",
+     "name": "Bash",
+     "input": {
+      "command": "ls -la",
+      "description": "List files"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "$TOOLU_1",
+     "output": "plan mode: no execution",
+     "isError": true
+    },
+    {
+     "t": "delta",
+     "text": "Understood, "
+    },
+    {
+     "t": "delta",
+     "text": "I "
+    },
+    {
+     "t": "delta",
+     "text": "did "
+    },
+    {
+     "t": "delta",
+     "text": "not "
+    },
+    {
+     "t": "delta",
+     "text": "run "
+    },
+    {
+     "t": "delta",
+     "text": "it."
+    },
+    {
+     "t": "end",
+     "cost": 0.0042,
+     "turns": 2,
+     "ms": 1234
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Mock mode (plan) — no real model is called here.\\n\\nYou said: **show me the plan**\\n\\nHere's some formatting to check the renderer:\\n\\n- a list item with `inline code`\\n- another with a [link](https://example.com)\\n\\n| Tool | Needs approval |\\n|------|----------------|\\n| Read | no |\\n| Bash | yes |\\n\\n```js\\nconsole.log(\\\"hello from a code block\\\");\\n```\\n\\nNow I'll run a command.\\n\\n\"},{\"type\":\"tool\",\"id\":\"$TOOLU_1\",\"name\":\"Bash\",\"input\":{\"command\":\"ls -la\",\"description\":\"List files\"},\"status\":\"error\",\"output\":\"plan mode: no execution\"},{\"type\":\"text\",\"text\":\"Understood, I did not run it.\"}],\"done\":{\"cost\":0.0042,\"turns\":2,\"ms\":1234}}]"
+  },
+  {
+   "name": "turn stop",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "fake-session-1",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Fake "
+    },
+    {
+     "t": "delta",
+     "text": "Claude "
+    },
+    {
+     "t": "delta",
+     "text": "(acceptEdits, "
+    },
+    {
+     "t": "delta",
+     "text": "claude-sonnet-5-5). "
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "a "
+    },
+    {
+     "t": "delta",
+     "text": "slow "
+    },
+    {
+     "t": "delta",
+     "text": "command\n\n"
+    },
+    {
+     "t": "tool_use",
+     "id": "toolu_A",
+     "name": "Bash",
+     "input": {
+      "command": "sleep 100",
+      "description": "List files"
+     }
+    },
+    {
+     "t": "error",
+     "text": "Stopped."
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Fake Claude (acceptEdits, claude-sonnet-5-5). You said: a slow command\\n\\n\"},{\"type\":\"tool\",\"id\":\"toolu_A\",\"name\":\"Bash\",\"input\":{\"command\":\"sleep 100\",\"description\":\"List files\"},\"status\":\"running\"}]},{\"role\":\"system\",\"text\":\"Stopped.\"}]"
+  },
+  {
+   "name": "two turns",
+   "events": [
+    {
+     "t": "user",
+     "text": "the prompt",
+     "ts": 1795549492136
+    },
+    {
+     "t": "session",
+     "sessionId": "fake-session-1",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Fake "
+    },
+    {
+     "t": "delta",
+     "text": "Claude "
+    },
+    {
+     "t": "delta",
+     "text": "(acceptEdits, "
+    },
+    {
+     "t": "delta",
+     "text": "claude-sonnet-5-5). "
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "list "
+    },
+    {
+     "t": "delta",
+     "text": "the "
+    },
+    {
+     "t": "delta",
+     "text": "files\n\n"
+    },
+    {
+     "t": "tool_use",
+     "id": "toolu_A",
+     "name": "Bash",
+     "input": {
+      "command": "ls",
+      "description": "List files"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "toolu_A",
+     "output": "file-a\nfile-b",
+     "isError": false
+    },
+    {
+     "t": "tool_use",
+     "id": "toolu_T",
+     "name": "Task",
+     "input": {
+      "description": "Look around",
+      "prompt": "Read the files",
+      "subagent_type": "Explore"
+     }
+    },
+    {
+     "t": "tool_result",
+     "id": "toolu_T",
+     "output": "Two files.",
+     "isError": false
+    },
+    {
+     "t": "delta",
+     "text": "All "
+    },
+    {
+     "t": "delta",
+     "text": "done "
+    },
+    {
+     "t": "delta",
+     "text": "— "
+    },
+    {
+     "t": "delta",
+     "text": "\"quotes\", "
+    },
+    {
+     "t": "delta",
+     "text": "ñ, "
+    },
+    {
+     "t": "delta",
+     "text": "🚀."
+    },
+    {
+     "t": "end",
+     "cost": 0.0123,
+     "turns": 3,
+     "ms": 4321
+    },
+    {
+     "t": "user",
+     "text": "and again",
+     "ts": 1795549499000
+    },
+    {
+     "t": "session",
+     "sessionId": "fake-session-1",
+     "model": "claude-sonnet-5-5"
+    },
+    {
+     "t": "delta",
+     "text": "Fake "
+    },
+    {
+     "t": "delta",
+     "text": "Claude "
+    },
+    {
+     "t": "delta",
+     "text": "(acceptEdits, "
+    },
+    {
+     "t": "delta",
+     "text": "claude-sonnet-5-5). "
+    },
+    {
+     "t": "delta",
+     "text": "You "
+    },
+    {
+     "t": "delta",
+     "text": "said: "
+    },
+    {
+     "t": "delta",
+     "text": "crash "
+    },
+    {
+     "t": "delta",
+     "text": "please\n\n"
+    },
+    {
+     "t": "error",
+     "text": "Claude Code process exited with code 3\n\nfatal: the fake model fell over"
+    }
+   ],
+   "indexes": [
+    0,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    -1,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"the prompt\",\"ts\":1795549492136},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Fake Claude (acceptEdits, claude-sonnet-5-5). You said: list the files\\n\\n\"},{\"type\":\"tool\",\"id\":\"toolu_A\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\",\"description\":\"List files\"},\"status\":\"ok\",\"output\":\"file-a\\nfile-b\"},{\"type\":\"tool\",\"id\":\"toolu_T\",\"name\":\"Task\",\"input\":{\"description\":\"Look around\",\"prompt\":\"Read the files\",\"subagent_type\":\"Explore\"},\"status\":\"ok\",\"output\":\"Two files.\"},{\"type\":\"text\",\"text\":\"All done — \\\"quotes\\\", ñ, 🚀.\"}],\"done\":{\"cost\":0.0123,\"turns\":3,\"ms\":4321}},{\"role\":\"user\",\"text\":\"and again\",\"ts\":1795549499000},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Fake Claude (acceptEdits, claude-sonnet-5-5). You said: crash please\\n\\n\"}]},{\"role\":\"system\",\"text\":\"Claude Code process exited with code 3\\n\\nfatal: the fake model fell over\"}]"
+  },
+  {
+   "name": "user with files",
+   "events": [
+    {
+     "t": "user",
+     "text": "",
+     "files": [
+      {
+       "name": "a.txt",
+       "size": 3
+      },
+      {
+       "name": "b ñ.png",
+       "size": 179
+      }
+     ],
+     "ts": 1
+    }
+   ],
+   "indexes": [
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"user\",\"text\":\"\",\"files\":[{\"name\":\"a.txt\",\"size\":3},{\"name\":\"b ñ.png\",\"size\":179}],\"ts\":1}]"
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"\",\"files\":[{\"name\":\"a.txt\",\"size\":3},{\"name\":\"b ñ.png\",\"size\":179}],\"ts\":1}]"
+  },
+  {
+   "name": "user with empty files list",
+   "events": [
+    {
+     "t": "user",
+     "text": "hi",
+     "files": [],
+     "ts": 2
+    }
+   ],
+   "indexes": [
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"user\",\"text\":\"hi\",\"ts\":2}]"
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"hi\",\"ts\":2}]"
+  },
+  {
+   "name": "user without ts",
+   "events": [
+    {
+     "t": "user",
+     "text": "no ts"
+    }
+   ],
+   "indexes": [
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"user\",\"text\":\"no ts\"}]"
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"no ts\"}]"
+  },
+  {
+   "name": "delta starts an assistant message",
+   "events": [
+    {
+     "t": "delta",
+     "text": "Hello"
+    },
+    {
+     "t": "delta",
+     "text": ", world"
+    }
+   ],
+   "indexes": [
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Hello\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Hello, world\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"Hello, world\"}]}]"
+  },
+  {
+   "name": "text after a tool is a new block",
+   "events": [
+    {
+     "t": "delta",
+     "text": "a"
+    },
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash",
+     "input": {
+      "command": "ls"
+     }
+    },
+    {
+     "t": "delta",
+     "text": "b"
+    },
+    {
+     "t": "delta",
+     "text": "c"
+    }
+   ],
+   "indexes": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"},{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\"},\"status\":\"running\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"},{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\"},\"status\":\"running\"},{\"type\":\"text\",\"text\":\"b\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"},{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\"},\"status\":\"running\"},{\"type\":\"text\",\"text\":\"bc\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"},{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\"},\"status\":\"running\"},{\"type\":\"text\",\"text\":\"bc\"}]}]"
+  },
+  {
+   "name": "duplicate tool_use is ignored",
+   "events": [
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash",
+     "input": {}
+    },
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Edit",
+     "input": {}
+    }
+   ],
+   "indexes": [
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]}]"
+  },
+  {
+   "name": "tool_use without input",
+   "events": [
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash"
+    }
+   ],
+   "indexes": [
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"status\":\"running\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"status\":\"running\"}]}]"
+  },
+  {
+   "name": "result for an unknown tool",
+   "events": [
+    {
+     "t": "tool_result",
+     "id": "nope",
+     "output": "x",
+     "isError": false
+    }
+   ],
+   "indexes": [
+    -1
+   ],
+   "snapshots": [
+    "[]"
+   ],
+   "final": "[]"
+  },
+  {
+   "name": "denied stays denied after its result",
+   "events": [
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Edit",
+     "input": {}
+    },
+    {
+     "t": "tool_denied",
+     "id": "x"
+    },
+    {
+     "t": "tool_result",
+     "id": "x",
+     "output": "denied",
+     "isError": true
+    }
+   ],
+   "indexes": [
+    0,
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Edit\",\"input\":{},\"status\":\"running\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Edit\",\"input\":{},\"status\":\"denied\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Edit\",\"input\":{},\"status\":\"denied\",\"output\":\"denied\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Edit\",\"input\":{},\"status\":\"denied\",\"output\":\"denied\"}]}]"
+  },
+  {
+   "name": "denied for an unknown tool",
+   "events": [
+    {
+     "t": "tool_denied",
+     "id": "nope"
+    }
+   ],
+   "indexes": [
+    -1
+   ],
+   "snapshots": [
+    "[]"
+   ],
+   "final": "[]"
+  },
+  {
+   "name": "error result",
+   "events": [
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash",
+     "input": {}
+    },
+    {
+     "t": "tool_result",
+     "id": "x",
+     "output": "boom",
+     "isError": true
+    }
+   ],
+   "indexes": [
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"error\",\"output\":\"boom\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"error\",\"output\":\"boom\"}]}]"
+  },
+  {
+   "name": "result without output",
+   "events": [
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash",
+     "input": {}
+    },
+    {
+     "t": "tool_result",
+     "id": "x",
+     "isError": false
+    }
+   ],
+   "indexes": [
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"ok\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"ok\"}]}]"
+  },
+  {
+   "name": "result twice: second wins",
+   "events": [
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash",
+     "input": {}
+    },
+    {
+     "t": "tool_result",
+     "id": "x",
+     "output": "one",
+     "isError": true
+    },
+    {
+     "t": "tool_result",
+     "id": "x",
+     "output": "two",
+     "isError": false
+    }
+   ],
+   "indexes": [
+    0,
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"error\",\"output\":\"one\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"ok\",\"output\":\"two\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"ok\",\"output\":\"two\"}]}]"
+  },
+  {
+   "name": "result finds the tool in an earlier message",
+   "events": [
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash",
+     "input": {}
+    },
+    {
+     "t": "user",
+     "text": "meanwhile",
+     "ts": 5
+    },
+    {
+     "t": "error",
+     "text": "oops"
+    },
+    {
+     "t": "tool_result",
+     "id": "x",
+     "output": "late",
+     "isError": false
+    }
+   ],
+   "indexes": [
+    0,
+    1,
+    2,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]},{\"role\":\"user\",\"text\":\"meanwhile\",\"ts\":5}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"running\"}]},{\"role\":\"user\",\"text\":\"meanwhile\",\"ts\":5},{\"role\":\"system\",\"text\":\"oops\"}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"ok\",\"output\":\"late\"}]},{\"role\":\"user\",\"text\":\"meanwhile\",\"ts\":5},{\"role\":\"system\",\"text\":\"oops\"}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{},\"status\":\"ok\",\"output\":\"late\"}]},{\"role\":\"user\",\"text\":\"meanwhile\",\"ts\":5},{\"role\":\"system\",\"text\":\"oops\"}]"
+  },
+  {
+   "name": "end without an assistant message",
+   "events": [
+    {
+     "t": "user",
+     "text": "hi",
+     "ts": 6
+    },
+    {
+     "t": "end",
+     "cost": 0.1,
+     "turns": 1,
+     "ms": 5
+    }
+   ],
+   "indexes": [
+    0,
+    -1
+   ],
+   "snapshots": [
+    "[{\"role\":\"user\",\"text\":\"hi\",\"ts\":6}]",
+    "[{\"role\":\"user\",\"text\":\"hi\",\"ts\":6}]"
+   ],
+   "final": "[{\"role\":\"user\",\"text\":\"hi\",\"ts\":6}]"
+  },
+  {
+   "name": "end with missing fields",
+   "events": [
+    {
+     "t": "delta",
+     "text": "a"
+    },
+    {
+     "t": "end"
+    }
+   ],
+   "indexes": [
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}],\"done\":{}}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}],\"done\":{}}]"
+  },
+  {
+   "name": "end twice replaces done",
+   "events": [
+    {
+     "t": "delta",
+     "text": "a"
+    },
+    {
+     "t": "end",
+     "cost": 0.5,
+     "turns": 1,
+     "ms": 1
+    },
+    {
+     "t": "end",
+     "cost": 0.25,
+     "turns": 2,
+     "ms": 2
+    }
+   ],
+   "indexes": [
+    0,
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}],\"done\":{\"cost\":0.5,\"turns\":1,\"ms\":1}}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}],\"done\":{\"cost\":0.25,\"turns\":2,\"ms\":2}}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}],\"done\":{\"cost\":0.25,\"turns\":2,\"ms\":2}}]"
+  },
+  {
+   "name": "error becomes a system message",
+   "events": [
+    {
+     "t": "error",
+     "text": "Claude Code process exited with code 3\n\nfatal"
+    }
+   ],
+   "indexes": [
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"system\",\"text\":\"Claude Code process exited with code 3\\n\\nfatal\"}]"
+   ],
+   "final": "[{\"role\":\"system\",\"text\":\"Claude Code process exited with code 3\\n\\nfatal\"}]"
+  },
+  {
+   "name": "error then delta starts a new assistant message",
+   "events": [
+    {
+     "t": "delta",
+     "text": "a"
+    },
+    {
+     "t": "error",
+     "text": "x"
+    },
+    {
+     "t": "delta",
+     "text": "b"
+    }
+   ],
+   "indexes": [
+    0,
+    1,
+    2
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]},{\"role\":\"system\",\"text\":\"x\"}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]},{\"role\":\"system\",\"text\":\"x\"},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"b\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]},{\"role\":\"system\",\"text\":\"x\"},{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"b\"}]}]"
+  },
+  {
+   "name": "unknown event types change nothing",
+   "events": [
+    {
+     "t": "session",
+     "sessionId": "s",
+     "model": "m"
+    },
+    {
+     "t": "nonsense"
+    },
+    {
+     "t": "delta",
+     "text": "a"
+    }
+   ],
+   "indexes": [
+    -1,
+    -1,
+    0
+   ],
+   "snapshots": [
+    "[]",
+    "[]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"a\"}]}]"
+  },
+  {
+   "name": "numbers and unicode in events",
+   "events": [
+    {
+     "t": "delta",
+     "text": "ñ 🚀 \"q\" \\ \u0001"
+    },
+    {
+     "t": "tool_use",
+     "id": "x",
+     "name": "Bash",
+     "input": {
+      "n": 1.5e-7,
+      "big": 1e+21,
+      "neg": 0,
+      "arr": [
+       1,
+       "two",
+       null,
+       true
+      ]
+     }
+    }
+   ],
+   "indexes": [
+    0,
+    0
+   ],
+   "snapshots": [
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"ñ 🚀 \\\"q\\\" \\\\ \\u0001\"}]}]",
+    "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"ñ 🚀 \\\"q\\\" \\\\ \\u0001\"},{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{\"n\":1.5e-7,\"big\":1e+21,\"neg\":0,\"arr\":[1,\"two\",null,true]},\"status\":\"running\"}]}]"
+   ],
+   "final": "[{\"role\":\"assistant\",\"blocks\":[{\"type\":\"text\",\"text\":\"ñ 🚀 \\\"q\\\" \\\\ \\u0001\"},{\"type\":\"tool\",\"id\":\"x\",\"name\":\"Bash\",\"input\":{\"n\":1.5e-7,\"big\":1e+21,\"neg\":0,\"arr\":[1,\"two\",null,true]},\"status\":\"running\"}]}]"
+  }
+ ],
+ "toolSummary": [
+  {
+   "name": "Bash",
+   "input": {
+    "command": "npm test\nsecond line"
+   },
+   "summary": "npm test"
+  },
+  {
+   "name": "Bash",
+   "input": {
+    "command": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+   "name": "Bash",
+   "input": {
+    "command": 42
+   },
+   "summary": "42"
+  },
+  {
+   "name": "Bash",
+   "input": {},
+   "summary": ""
+  },
+  {
+   "name": "Bash",
+   "input": null,
+   "summary": ""
+  },
+  {
+   "name": "Read",
+   "input": {
+    "file_path": "/a/b.js"
+   },
+   "summary": "/a/b.js"
+  },
+  {
+   "name": "Write",
+   "input": {
+    "file_path": "",
+    "notebook_path": "/n.ipynb"
+   },
+   "summary": "/n.ipynb"
+  },
+  {
+   "name": "NotebookEdit",
+   "input": {
+    "notebook_path": "/n.ipynb"
+   },
+   "summary": "/n.ipynb"
+  },
+  {
+   "name": "Edit",
+   "input": {
+    "file_path": "/ñ/🚀.txt"
+   },
+   "summary": "/ñ/🚀.txt"
+  },
+  {
+   "name": "MultiEdit",
+   "input": {},
+   "summary": ""
+  },
+  {
+   "name": "Grep",
+   "input": {
+    "pattern": "TODO",
+    "path": "src"
+   },
+   "summary": "TODO  in src"
+  },
+  {
+   "name": "Grep",
+   "input": {
+    "pattern": "TODO"
+   },
+   "summary": "TODO"
+  },
+  {
+   "name": "Grep",
+   "input": {
+    "path": "src"
+   },
+   "summary": "  in src"
+  },
+  {
+   "name": "Grep",
+   "input": {
+    "pattern": "a",
+    "path": ""
+   },
+   "summary": "a"
+  },
+  {
+   "name": "Glob",
+   "input": {
+    "pattern": "**/*.ts"
+   },
+   "summary": "**/*.ts"
+  },
+  {
+   "name": "WebFetch",
+   "input": {
+    "url": "https://example.com/x"
+   },
+   "summary": "https://example.com/x"
+  },
+  {
+   "name": "WebSearch",
+   "input": {
+    "query": "swift json"
+   },
+   "summary": "swift json"
+  },
+  {
+   "name": "Task",
+   "input": {
+    "description": "Look around",
+    "prompt": "p"
+   },
+   "summary": "Look around"
+  },
+  {
+   "name": "Agent",
+   "input": {
+    "description": "Explore"
+   },
+   "summary": "Explore"
+  },
+  {
+   "name": "TodoWrite",
+   "input": {
+    "todos": [
+     {},
+     {},
+     {}
+    ]
+   },
+   "summary": "3 items"
+  },
+  {
+   "name": "TodoWrite",
+   "input": {},
+   "summary": "0 items"
+  },
+  {
+   "name": "mcp__x__y",
+   "input": {
+    "count": 3,
+    "label": "first string",
+    "other": "second"
+   },
+   "summary": "first string"
+  },
+  {
+   "name": "Mystery",
+   "input": {
+    "a": 1,
+    "b": true
+   },
+   "summary": ""
+  },
+  {
+   "name": "Mystery",
+   "input": {},
+   "summary": ""
+  },
+  {
+   "name": "Bash",
+   "input": {
+    "command": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééñ"
+   },
+   "summary": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+  }
+ ]
+}

@@ -55,6 +55,37 @@ public struct JSONObject: Equatable {
     }
 }
 
+// In-place edits: change a value inside a JSON tree without copying the parts around it (a thread's text
+// grows by one small piece per streamed word, so copying it every time would get slow).
+extension JSONObject {
+    /// Changes the value of `key` where it is (keeping its position). nil if there is no such key.
+    @discardableResult
+    public mutating func modify<T>(_ key: String, _ body: (inout JSONValue) -> T) -> T? {
+        guard let i = entries.firstIndex(where: { $0.key == key }) else { return nil }
+        return body(&entries[i].value)
+    }
+}
+
+extension JSONValue {
+    /// Changes this object in place. nil if this isn't an object.
+    @discardableResult
+    public mutating func modifyObject<T>(_ body: (inout JSONObject) -> T) -> T? {
+        guard case .object(var o) = self else { return nil }
+        self = .null   // let go of our reference so `o` is the only one and isn't copied when changed
+        defer { self = .object(o) }
+        return body(&o)
+    }
+
+    /// Changes this array in place. nil if this isn't an array.
+    @discardableResult
+    public mutating func modifyArray<T>(_ body: (inout [JSONValue]) -> T) -> T? {
+        guard case .array(var a) = self else { return nil }
+        self = .null
+        defer { self = .array(a) }
+        return body(&a)
+    }
+}
+
 // Literals, so code and checks can write  ["id": "abc", "cost": 0, "sessionId": nil]
 extension JSONValue: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral, ExpressibleByFloatLiteral,
                      ExpressibleByBooleanLiteral, ExpressibleByNilLiteral, ExpressibleByArrayLiteral,

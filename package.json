@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.mjs",
     "mock": "node server.mjs --mock",
-    "test": "node test/smoke.mjs"
+    "test": "node test/smoke.mjs",
+    "test:swift": "swift build --package-path mac --product charness-server && CHARNESS_SERVER=mac/.build/debug/charness-server node test/smoke.mjs && CHARNESS_SERVER=mac/.build/debug/charness-server node test/compare-servers.mjs"
   },
   "engines": {
     "node": ">=20"
