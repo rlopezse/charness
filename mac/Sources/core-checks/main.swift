@@ -1,7 +1,8 @@
 // Self-test for CharnessCore, in the spirit of test/smoke.mjs: one plain program, no test framework, so it
 // runs with only the Command Line Tools (no Xcode) and on Linux.
 //     swift run --package-path mac core-checks
-// Fixtures in mac/Fixtures are real output of the Node code; regenerate them with the scripts there.
+// Fixtures in mac/Fixtures are real output of the retired Node version (and of JavaScript itself), kept as the
+// expected results; the scripts there regenerate the ones that still can be (JSON formats, the reducer).
 
 import Foundation
 import CharnessCore
@@ -245,7 +246,7 @@ do {
 
 // MARK: - egress guard (day 6)
 
-print("egress guard matches lib/guard.mjs")
+print("egress guard answers like the Node guard did (mac/Fixtures/guard.json)")
 check("allow-list rules: exact host, default port 443, explicit port, *.subdomains only, case-insensitive", [
     EgressGuard.isAllowed(host: "api.anthropic.com", port: 443, allow: ["api.anthropic.com"]),
     !EgressGuard.isAllowed(host: "api.anthropic.com", port: 8443, allow: ["api.anthropic.com"]),
@@ -274,25 +275,27 @@ func probe(_ port: Int, _ request: String, until marker: String? = nil) -> Strin
     return String(decoding: got, as: UTF8.self)
 }
 
-if let node = ClaudeLaunch.which("node") {
-    // the Node guard (twice: direct and chained), the servers they tunnel to and a fake corporate proxy
-    let peer = Process()
-    peer.executableURL = URL(fileURLWithPath: node)
-    peer.arguments = [fixtures.appendingPathComponent("guard-peer.mjs").path]
-    let peerIn = Pipe(), peerOut = Pipe()
-    peer.standardInput = peerIn
-    peer.standardOutput = peerOut
-    let peerLock = NSLock()
-    var peerLines: [JSONObject] = []
-    try? peer.run()
+let guardGolden = (try? JSONValue.parse(Array((try? Data(contentsOf: fixtures.appendingPathComponent("guard.json"))) ?? Data())))?.objectValue
+if let node = ClaudeLaunch.which("node"), let golden = guardGolden {
+    // the servers the guards tunnel to and a fake corporate proxy (mac/Fixtures/guard-servers.mjs); the answers
+    // they are compared with were recorded from the Node guard before it was retired (mac/Fixtures/guard.json)
+    let helper = Process()
+    helper.executableURL = URL(fileURLWithPath: node)
+    helper.arguments = [fixtures.appendingPathComponent("guard-servers.mjs").path]
+    let helperIn = Pipe(), helperOut = Pipe()
+    helper.standardInput = helperIn
+    helper.standardOutput = helperOut
+    let helperLock = NSLock()
+    var helperLines: [JSONObject] = []
+    try? helper.run()
     Thread.detachNewThread {
         var buf: [UInt8] = []
         while true {
-            let chunk = peerOut.fileHandleForReading.availableData   // a pipe, not a socket: read, not recv
+            let chunk = helperOut.fileHandleForReading.availableData   // a pipe, not a socket: read, not recv
             if chunk.isEmpty { break }
             buf += chunk
             while let nl = buf.firstIndex(of: 10) {
-                if let o = (try? JSONValue.parse(Array(buf[..<nl])))?.objectValue { peerLock.lock(); peerLines.append(o); peerLock.unlock() }
+                if let o = (try? JSONValue.parse(Array(buf[..<nl])))?.objectValue { helperLock.lock(); helperLines.append(o); helperLock.unlock() }
                 buf.removeSubrange(...nl)
             }
         }
@@ -300,86 +303,71 @@ if let node = ClaudeLaunch.which("node") {
     var ready: JSONObject?
     for _ in 0..<100 where ready == nil {
         Thread.sleep(forTimeInterval: 0.1)
-        peerLock.lock(); ready = peerLines.first { $0["ready"] == true }; peerLock.unlock()
+        helperLock.lock(); ready = helperLines.first { $0["ready"] == true }; helperLock.unlock()
     }
     if let ready = ready {
         let port = { (k: String) in Int(ready[k]?.doubleValue ?? 0) }
-        let allow = ready["allow"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        let ports = [("{ECHO}", port("echo")), ("{PONG}", port("pong")), ("{PROXY}", port("proxy"))]
+        func fill(_ s: String) -> String { ports.reduce(s) { $0.replacingOccurrences(of: $1.0, with: String($1.1)) } }
+        func tokens(_ s: String) -> String {
+            ports.reduce(s) { text, p in
+                (try? NSRegularExpression(pattern: "\\b\(p.1)\\b")).map {
+                    $0.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: NSRegularExpression.escapedTemplate(for: p.0))
+                } ?? text
+            }
+        }
+        let allow = golden["allow"]?.arrayValue?.compactMap(\.stringValue).map(fill) ?? []
         let swiftLock = NSLock()
         var swiftLog: [(String, GuardLogEntry)] = []
         let direct = EgressGuard(allowList: { allow }) { e in swiftLock.lock(); swiftLog.append(("direct", e)); swiftLock.unlock() }
-        let chained = EgressGuard(allowList: { allow }, upstream: "http://us%40er:p%40ss@127.0.0.1:\(port("proxy"))") { e in
+        let chained = EgressGuard(allowList: { allow }, upstream: fill(golden["upstream"]?.stringValue ?? "")) { e in
             swiftLock.lock(); swiftLog.append(("chained", e)); swiftLock.unlock()
         }
         let swiftDirect = (try? direct.start()) ?? 0, swiftChained = (try? chained.start()) ?? 0
-        let echo = port("echo"), pong = port("pong")
 
-        // the same requests to both guards; plain-HTTP answers are compared by status line and body only,
-        // because Node adds a Date header and keeps the connection open
+        // plain-HTTP answers are compared by status line and body: Node added a Date header and kept the
+        // connection open, the Swift guard closes it
         let blocked = "blocked by charness egress guard\n"
-        let probes: [(String, Bool, String, String?)] = [
-            ("unlisted host", false, "CONNECT telemetry.example.com:443 HTTP/1.1\r\nHost: telemetry.example.com:443\r\n\r\n", nil),
-            ("allowed host, wrong port", false, "CONNECT api.anthropic.com:8443 HTTP/1.1\r\n\r\n", nil),
-            ("allowed: tunnels through", false, "CONNECT 127.0.0.1:\(echo) HTTP/1.1\r\nHost: 127.0.0.1:\(echo)\r\n\r\n", nil),
-            ("bytes sent right after CONNECT reach the server", false, "CONNECT 127.0.0.1:\(pong) HTTP/1.1\r\n\r\nPING", nil),
-            ("name allowed in another case, resolved locally", false, "CONNECT localhost:\(echo) HTTP/1.1\r\n\r\n", nil),
-            ("*.example.org does not cover example.org", false, "CONNECT example.org:443 HTTP/1.1\r\n\r\n", nil),
-            ("port out of range", false, "CONNECT x.com:99999 HTTP/1.1\r\n\r\n", nil),
-            ("bad host characters: closed, not logged", false, "CONNECT bad_host!:443 HTTP/1.1\r\n\r\n", nil),
-            ("no port: closed, not logged", false, "CONNECT example.com HTTP/1.1\r\n\r\n", nil),
-            ("malformed request line", false, "CONNECT a b:443 HTTP/1.1\r\n\r\n", nil),
-            ("unknown method", false, "BREW coffee HTTP/1.1\r\n\r\n", nil),
-            ("lowercase method", false, "connect x.com:443 HTTP/1.1\r\n\r\n", nil),
-            ("HTTP/1.0 and HTTP/2.0 request lines", false, "CONNECT x.com:443 HTTP/1.0\r\n\r\n", nil),
-            ("HTTP/2.0", false, "CONNECT x.com:443 HTTP/2.0\r\n\r\n", nil),
-            ("headers over 16 KB", false, "CONNECT x.com:443 HTTP/1.1\r\nX: \(String(repeating: "a", count: 20_000))\r\n\r\n", nil),
-            ("over 16 KB of headers that never end", false, "CONNECT x.com:443 HTTP/1.1\r\nX: \(String(repeating: "a", count: 20_000))", nil),
-            ("plain http is refused", false, "GET http://Example.com/x HTTP/1.1\r\nHost: example.com\r\n\r\n", blocked),
-            ("plain http, no absolute URL", false, "GET /x HTTP/1.1\r\nHost: a\r\n\r\n", blocked),
-            ("chained through the user's proxy, with its login", true, "CONNECT 127.0.0.1:\(echo) HTTP/1.1\r\n\r\n", nil),
-            ("the user's proxy refuses: 502", true, "CONNECT 127.0.0.1:1 HTTP/1.1\r\n\r\n", nil),
-        ]
         func normal(_ r: String, plain: Bool) -> String {
             guard plain else { return r }
             return (r.components(separatedBy: "\r\n").first ?? "") + (r.contains(blocked) ? " | " + blocked : " | no body")
         }
+        let probes = golden["probes"]?.arrayValue?.compactMap(\.objectValue) ?? []
         var mismatches: [String] = []
-        for (name, viaProxy, request, marker) in probes {
-            let a = probe(viaProxy ? port("chained") : port("direct"), request, until: marker)
-            let b = probe(viaProxy ? swiftChained : swiftDirect, request, until: marker)
-            if normal(a, plain: marker != nil) != normal(b, plain: marker != nil) {
-                mismatches.append("\(name): Node \(a.prefix(80).debugDescription) vs Swift \(b.prefix(80).debugDescription)")
+        for pr in probes {
+            let plain = pr["plain"] == true
+            let got = probe(pr["chained"] == true ? swiftChained : swiftDirect, fill(pr["request"]?.stringValue ?? ""), until: plain ? blocked : nil)
+            let want = pr["answer"]?.stringValue ?? "?"
+            if tokens(normal(got, plain: plain)) != want {
+                mismatches.append("\(pr["name"]?.stringValue ?? "?"): Node said \(want.prefix(70).debugDescription), Swift \(got.prefix(70).debugDescription)")
             }
         }
         for m in mismatches.prefix(5) { print("      \(m)") }
-        check("\(probes.count) requests (allowed, refused, malformed, plain http, chained): the same answers as the Node guard", mismatches.isEmpty)
+        check("\(probes.count) requests (allowed, refused, malformed, plain http, chained): the answers the Node guard gave",
+              probes.count >= 20 && mismatches.isEmpty)
 
         Thread.sleep(forTimeInterval: 0.5)
-        peerLock.lock(); let lines = peerLines; peerLock.unlock()
+        helperLock.lock(); let lines = helperLines; helperLock.unlock()
         swiftLock.lock(); let mine = swiftLog; swiftLock.unlock()
         func noTs(_ o: JSONObject) -> JSONValue { var c = o; c["ts"] = nil; return .object(c) }
-        let nodeLog = lines.compactMap { l -> JSONValue? in
-            guard let g = l["guard"]?.stringValue, let e = l["entry"]?.objectValue else { return nil }
-            return ["guard": .string(g), "entry": noTs(e)]
-        }
-        let swiftLogJSON = mine.map { g, e -> JSONValue in ["guard": .string(g), "entry": noTs(e.json.objectValue!)] }
-        if nodeLog != swiftLogJSON { print("      Node log: \(nodeLog.count) entries, Swift log: \(swiftLogJSON.count)") }
-        check("the same \(nodeLog.count) log entries, in the same order (host, port, allowed, note)", !nodeLog.isEmpty && nodeLog == swiftLogJSON)
+        let swiftLogText = tokens(JSONValue.array(mine.map { g, e -> JSONValue in ["guard": .string(g), "entry": noTs(e.json.objectValue!)] }).jsonString())
+        check("the same \(mine.count) log entries the Node guard wrote, in the same order (host, port, allowed, note)",
+              !mine.isEmpty && swiftLogText == golden["log"]?.stringValue)
 
-        let proxyRequests = lines.compactMap { $0["proxyRequest"]?.stringValue }
-        check("the same request to the user's proxy, with Proxy-Authorization from the URL's login",
-              proxyRequests.count == 4 && proxyRequests[0] == proxyRequests[1] && proxyRequests[2] == proxyRequests[3]
-              && proxyRequests[0].contains("Proxy-Authorization: Basic dXNAZXI6cEBzcw==\r\n"))
+        let proxyRequests = lines.compactMap { $0["proxyRequest"]?.stringValue }.map(tokens)
+        check("the same requests to the user's proxy, with Proxy-Authorization from the URL's login",
+              JSONValue.array(proxyRequests.map(JSONValue.string)) == golden["proxyRequests"]
+              && proxyRequests.first?.contains("Proxy-Authorization: Basic dXNAZXI6cEBzcw==\r\n") == true)
 
         direct.stop(); chained.stop()
-        check("after stop() the guard accepts no connections", probe(swiftDirect, "CONNECT 127.0.0.1:\(echo) HTTP/1.1\r\n\r\n") == "<cannot connect>")
+        check("after stop() the guard accepts no connections", probe(swiftDirect, "CONNECT 127.0.0.1:\(port("echo")) HTTP/1.1\r\n\r\n") == "<cannot connect>")
     } else {
-        check("the Node guard peer started", false)
+        check("the guard test servers started", false)
     }
-    try? peerIn.fileHandleForWriting.close()
-    peer.waitUntilExit()
+    try? helperIn.fileHandleForWriting.close()
+    helper.waitUntilExit()
 } else {
-    print("  - skipped: node not found on PATH (needed to run the Node guard side by side)")
+    print("  - skipped: node not found on PATH (needed for the guard's test servers)")
 }
 
 // MARK: - server paths (days 7-8)
@@ -413,7 +401,6 @@ do {
 // MARK: - Claude Code bridge (day 3)
 
 print("talks to Claude Code like the Agent SDK")
-let repo = fixtures.deletingLastPathComponent().deletingLastPathComponent()
 let fakeClaude = fixtures.appendingPathComponent("fake-claude.mjs").path
 do {
     var l = ClaudeLaunch(executable: "/x/claude", cwd: "/tmp")
@@ -440,7 +427,7 @@ func realPath(_ u: URL) -> String {
     return String(cString: p)
 }
 
-// Records a turn the way make-turn-fixtures.mjs records the Node version: events, activity, prompts.
+// Records a turn the way the Node version was recorded (mac/Fixtures/turns): events, activity, prompts.
 let denyMessage = "The user denied this action. Do not retry it; ask what they would like instead."
 func record(_ turn: ClaudeTurn, cwd: String, allow: Bool?, stopAfter: Double? = nil, stopWhen: String = "Bash: sleep") -> (JSONValue, Double) {
     let lock = NSLock()
@@ -470,7 +457,7 @@ func record(_ turn: ClaudeTurn, cwd: String, allow: Bool?, stopAfter: Double? = 
     return ((try? JSONValue.parse(text)) ?? .null, Date().timeIntervalSince(t0))
 }
 
-/// The mock makes up random ids: number them in order of appearance, as make-turn-fixtures.mjs does.
+/// The mock makes up random ids: number them in order of appearance, as was done for the recordings.
 func normalizeIds(_ v: JSONValue) -> JSONValue {
     var text = v.jsonString()
     let re = try! NSRegularExpression(pattern: "\\b(mock-[0-9a-z]+|toolu_[0-9a-z]+|msg_[0-9a-z_]+)\\b")
@@ -506,26 +493,23 @@ func newCwd() -> String {
     return realPath(dir)
 }
 
-if let node = ClaudeLaunch.which("node") {
-    // the child's environment: same allow-list as lib/agent.mjs (ask Node itself, with a crafted environment)
-    let crafted = ["PATH": "/usr/bin", "HOME": "/tmp/h", "lang": "es_CL.UTF-8", "ANTHROPIC_API_KEY": "sk-test",
-                   "AWS_SECRET_ACCESS_KEY": "nope", "GITHUB_TOKEN": "nope", "SSH_AUTH_SOCK": "/nope", "NO_PROXY": "*",
-                   "https_proxy": "http://evil:1", "HARNESS_PASS_ENV": "foo_var, BAR", "FOO_VAR": "1", "Bar": "2",
-                   "DISABLE_TELEMETRY": "0", "NODE_OPTIONS": "--inspect"]
-    let p = Process()
-    p.executableURL = URL(fileURLWithPath: node)
-    p.arguments = ["--input-type=module", "-e", "const m = await import(process.argv[1]); process.stdout.write(JSON.stringify(m.buildEnv({ guardPort: 4321 })))",
-                   repo.appendingPathComponent("lib/agent.mjs").path]
-    p.environment = crafted
-    let out = Pipe(); p.standardOutput = out
-    try? p.run(); p.waitUntilExit()
-    let nodeEnv = (try? JSONValue.parse(out.fileHandleForReading.readDataToEndOfFile()))?.objectValue
+// the child's environment: the allow-list lib/agent.mjs had (recorded with a crafted environment, mac/Fixtures/env.json)
+if let env = (try? JSONValue.parse(Array((try? Data(contentsOf: fixtures.appendingPathComponent("env.json"))) ?? Data())))?.objectValue,
+   let input = env["input"]?.objectValue {
+    let crafted = Dictionary(uniqueKeysWithValues: input.entries.compactMap { e in e.value.stringValue.map { (e.key, $0) } })
     let swiftEnv = AgentEnvironment.build(guardPort: 4321, crafted)
-    check("child environment allow-list matches Node's buildEnv() (secrets dropped, guard proxy forced)",
-          nodeEnv != nil && JSONValue.object(nodeEnv!) == .object(JSONObject(swiftEnv.map { ($0.key, JSONValue.string($0.value)) }))
+    let swiftBase = AgentEnvironment.base(crafted)
+    func json(_ d: [String: String]) -> JSONValue { .object(JSONObject(d.map { ($0.key, JSONValue.string($0.value)) })) }
+    check("child environment allow-list matches what Node's buildEnv() gave (secrets dropped, guard proxy forced)",
+          json(swiftEnv) == env["build"] && json(swiftBase) == env["base"]
           && swiftEnv["GITHUB_TOKEN"] == nil && swiftEnv["https_proxy"] == "http://127.0.0.1:4321")
+} else {
+    check("mac/Fixtures/env.json is readable", false)
+}
 
+if let node = ClaudeLaunch.which("node") {
     // whole turns against the stand-in, compared with what the Node version (real Agent SDK) reported
+    // (mac/Fixtures/turns/*.json, recorded before the Node server was retired)
     func runTurnLog(prompt: String, allow: Bool?, resume: String?, stopAfter: Double? = nil, stopWhen: String = "Bash: sleep") -> (JSONValue, Double) {
         let cwd = newCwd()
         var launch = ClaudeLaunch(executable: node, cwd: cwd)

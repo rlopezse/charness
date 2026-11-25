@@ -69,7 +69,6 @@ printf 'APPL????' > "$OUT/PkgInfo"
 # Ad-hoc signature so macOS treats the bundle as one app (window position, Keychain prompts, etc.).
 codesign --force --sign - "$TMP/Charness.app" >/dev/null 2>&1 || echo "Note: ad-hoc codesign failed; the app should still run." >&2
 
-chmod +x "$HERE/scripts/launch.sh"
 mkdir -p "$DEST"
 rm -rf "$APP"
 mv "$TMP/Charness.app" "$APP"

@@ -1,4 +1,4 @@
-// Swift port of lib/store.mjs: JSON persistence under ~/.charness (override: HARNESS_HOME).
+// JSON persistence (ported from lib/store.mjs, the retired Node version) under ~/.charness (override: HARNESS_HOME).
 //
 // Same files, same layout, same permissions (dirs 0700, files 0600, atomic replace), same debounced writes
 // (state 200 ms, messages 400 ms). Files are rewritten byte for byte as Node writes them, and fields this

@@ -1,8 +1,8 @@
-// Swift port of server.mjs: the Charness server. Same /api, same auth (token -> strict HttpOnly cookie, Host
-// and Origin checks, X-Harness header), same security headers and live-event feed, same files on disk, so the
-// unchanged web UI in public/ runs on it. Built from the other ports: Store (lib/store.mjs), ClaudeTurn and
-// MockClaude (lib/agent.mjs), Reducer (public/reduce.js), EgressGuard (lib/guard.mjs), Uploads
-// (lib/uploads.mjs). test/smoke.mjs runs against it with CHARNESS_SERVER=<charness-server binary>.
+// The Charness server (ported from server.mjs, the retired Node version, and checked against it before it
+// was retired: same replies, live events and files). Same /api, same auth (token -> strict HttpOnly cookie, Host
+// and Origin checks, X-Harness header), same security headers and live-event feed, so the web UI in public/
+// runs on it. Built from Store, ClaudeTurn and MockClaude, Reducer (twin of public/reduce.js), EgressGuard and
+// Uploads. Charness.app runs it in-process; charness-server runs it in a terminal; test/smoke.mjs tests it.
 
 import Foundation
 #if canImport(Darwin)

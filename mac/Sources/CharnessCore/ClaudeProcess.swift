@@ -17,7 +17,7 @@ import Darwin
 import Glibc
 #endif
 
-/// How to start one `claude` run. Mirrors the options lib/agent.mjs passes to the SDK.
+/// How to start one `claude` run (the options the Agent SDK turned into flags for the retired lib/agent.mjs).
 public struct ClaudeLaunch {
     /// Absolute path of the claude binary (or of `node`, with fake-claude.mjs in `executableArgs`, in tests).
     public var executable: String

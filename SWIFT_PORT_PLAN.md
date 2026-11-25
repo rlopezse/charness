@@ -1,7 +1,7 @@
 # Swift port plan
 
-Status: **in progress** on branch `feat/swift-port`, one step per day; the app works at the end of each day.
-Node stays the working implementation (and the only writer of `~/.charness`) until the swap-over (day 7).
+Status: **done.** The server and the app are Swift; the Node server was retired (2026-11-25). What follows is the
+record of how it was ported.
 
 ## Progress
 
@@ -16,6 +16,7 @@ Node stays the working implementation (and the only writer of `~/.charness`) unt
 | 7-8 | Swap-over: Swift answers `/api` for the existing web UI; Node no longer needed | done (the app runs the Swift server) |
 | 9 | Git Changes panel | done early (part of the server port) |
 | 10-14 | Native SwiftUI screens (optional) | |
+| — | Retire the Node server (`server.mjs`, `lib/`, `launch.sh`); its answers kept as fixtures | done |
 | 15 | Tests and packaging | |
 
 Days 7-8 notes: `HTTP.swift` (loopback HTTP/1.1, chunked bodies, SSE) and `Server.swift` port `server.mjs`

@@ -1,4 +1,4 @@
-// The Charness server in Swift, as a command-line program: the same flags and output as `node server.mjs`.
+// The Charness server as a command-line program (`npm start`); same flags and output as the retired server.mjs.
 //     swift run --package-path mac charness-server [--port 4317] [--mock] [--no-guard] [--rotate-token] [--open]
 //     [--root DIR]   the Charness folder (public/ and node_modules/); default: the one this was built from
 // Charness.app runs the same server inside the app; this program is for the terminal and for test/smoke.mjs
@@ -56,7 +56,7 @@ if flag("--open") {
     try? p.run()
 }
 
-// Ctrl-C / kill: stop the runs, write what is pending, exit (shutdown() in server.mjs)
+// Ctrl-C / kill: stop the runs, write what is pending, exit
 var signals: [DispatchSourceSignal] = []
 for sig in [SIGINT, SIGTERM] {
     signal(sig, SIG_IGN)
