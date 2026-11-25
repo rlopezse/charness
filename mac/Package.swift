@@ -2,7 +2,7 @@
 // The Swift side of Charness. No third-party packages, on purpose (see CLAUDE.md).
 //
 //   CharnessCore   Foundation-only logic ported from Node, one piece at a time (builds on macOS and Linux)
-//   Charness       the macOS app (AppKit + WKWebView); built into Charness.app by scripts/make-mac-app.sh
+//   Charness       the macOS app (AppKit + SwiftUI, web UI as fallback); built into Charness.app by scripts/make-mac-app.sh
 //   charness-check read-only check of your real ~/.charness data against the Swift store
 //   claude-spike   one turn with the real Claude Code from Swift (no Node, no Agent SDK), approvals in the terminal
 //   charness-server the whole Charness server in Swift (what Charness.app runs inside), for the terminal and tests
@@ -12,7 +12,7 @@ import PackageDescription
 
 let package = Package(
     name: "Charness",
-    platforms: [.macOS(.v12)],
+    platforms: [.macOS(.v14)],
     targets: [
         .target(name: "CharnessCore"),
         .executableTarget(name: "Charness", dependencies: ["CharnessCore"]),

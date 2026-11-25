@@ -43,7 +43,13 @@ public final class CharnessServer: @unchecked Sendable {
     public var guardPort: Int? { egress?.port }
     public var link: String { "http://127.0.0.1:\(port)/?token=\(token)" }
 
-    private struct Mode { let id: String; let label: String; let sdk: String }
+    private struct Mode {
+        let id: String
+        let label: String
+        let sdk: String
+        /// Tools whose permission prompts the server answers "allow" itself, without asking.
+        var autoAllow: Set<String> = []
+    }
     private let models: [JSONValue] = [
         ["id": "", "label": "Default"],
         ["id": "claude-opus-5-5", "label": "Opus 5.5"],
@@ -92,6 +98,9 @@ public final class CharnessServer: @unchecked Sendable {
         uploads = Uploads(home: config.home)
         var m = [Mode(id: "ask", label: "Ask before changes", sdk: "default"),
                  Mode(id: "edits", label: "Auto-accept edits", sdk: "acceptEdits"),
+                 // edits as above, and shell commands approved here; every other tool still asks
+                 Mode(id: "commands", label: "Auto-accept edits & commands", sdk: "acceptEdits",
+                      autoAllow: ["Bash", "BashOutput", "KillShell"]),
                  Mode(id: "plan", label: "Plan only", sdk: "plan")]
         if config.environment["HARNESS_ALLOW_FULL_ACCESS"] == "1" {
             m.append(Mode(id: "full", label: "Full access (no prompts)", sdk: "bypassPermissions"))
@@ -301,6 +310,10 @@ public final class CharnessServer: @unchecked Sendable {
         turn.activity = { [weak self] a in self?.turnActivity(id, run, a) }
         turn.canUseTool = { [weak self] req, answer in
             guard let self else { return answer(.deny(message: "Run ended.", interrupt: false)) }
+            if autoAllows(id, req.toolName) {
+                DispatchQueue.global().async { answer(.allow(updatedInput: req.input)) }
+                return
+            }
             ask(id, req, answer)
         }
         turn.onPermissionCancelled = { [weak self] requestId in self?.withdraw(requestId) }
@@ -334,6 +347,14 @@ public final class CharnessServer: @unchecked Sendable {
         q.sync {
             run.activity = a.json                // live feed only: kept with the run, never written to disk
             broadcast(["type": "activity", "threadId": .string(id), "activity": a.json])
+        }
+    }
+
+    /// Whether the thread's mode, as it is now (it can be changed during a run), approves this tool by itself.
+    private func autoAllows(_ threadId: String, _ tool: String) -> Bool {
+        q.sync {
+            guard let t = store.state.threads.first(where: { $0.id == threadId }) else { return false }
+            return modes.first { $0.id == t.mode }?.autoAllow.contains(tool) ?? false
         }
     }
 

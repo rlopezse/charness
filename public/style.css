@@ -88,7 +88,7 @@ button { cursor: pointer; }
 .md li { margin: 2px 0; }
 .md blockquote { margin: 0 0 10px; padding: 2px 12px; border-left: 3px solid var(--line); color: var(--muted); }
 .md hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
-.md a { color: var(--accent); }
+.md a, .bubble a, .tbody pre a { color: var(--accent); }
 .md code.ic { font-family: var(--mono); font-size: 12.5px; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 .tablewrap { overflow-x: auto; margin: 0 0 10px; }
 .md table { border-collapse: collapse; font-size: 13px; }

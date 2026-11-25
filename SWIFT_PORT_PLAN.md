@@ -15,7 +15,7 @@ record of how it was ported.
 | 6 | Egress guard (POSIX sockets, so it is tested on Linux too) | done |
 | 7-8 | Swap-over: Swift answers `/api` for the existing web UI; Node no longer needed | done (the app runs the Swift server) |
 | 9 | Git Changes panel | done early (part of the server port) |
-| 10-14 | Native SwiftUI screens (optional) | |
+| 10-14 | Native SwiftUI screens; web UI kept behind View ▸ Use Web Interface; login-shell PATH for Claude's commands | done (client, state and Markdown tested on Linux; views built on the Mac) |
 | — | Retire the Node server (`server.mjs`, `lib/`, `launch.sh`); its answers kept as fixtures | done |
 | 15 | Tests and packaging | |
 

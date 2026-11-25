@@ -38,7 +38,7 @@ Add a project folder in the sidebar (type its path), press **+** for a thread, a
 | Your other secrets leaking into the agent | The child gets an allow-listed environment (PATH, HOME, locale, proxy/CA vars, and the Anthropic auth vars). `AWS_*`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK` etc. are **not** passed. Add what you need with `HARNESS_PASS_ENV=A,B`. |
 | Other web pages talking to your local server | Loopback only; random 256-bit token → `HttpOnly; SameSite=Strict` cookie; `Host` and `Origin` checks on every request (blocks DNS-rebinding and cross-site POSTs); strict CSP (`default-src 'none'`, scripts/styles/connect `'self'`). |
 | A cloned repo changing Claude's behaviour | Project `CLAUDE.md` / `.claude/settings.json` (hooks, env…) are **always loaded** for every project, so only add folders you trust. Your user-level `~/.claude` settings and hooks are not loaded. |
-| Accidents | Default mode asks before edits/commands. "Full access (no prompts)" does not exist unless you start with `HARNESS_ALLOW_FULL_ACCESS=1`. `AskUserQuestion` is disabled so every question is a normal chat message. |
+| Accidents | Default mode asks before edits/commands. "Auto-accept edits & commands" is opt-in per thread: Charness approves shell commands itself (other tools still ask, the egress guard still applies), so only use it in projects you're happy for Claude to run anything in. "Full access (no prompts)" does not exist unless you start with `HARNESS_ALLOW_FULL_ACCESS=1`. `AskUserQuestion` is disabled so every question is a normal chat message. |
 | Third-party code in the UI | None: no framework, no CDN, no fonts, no analytics. Markdown is rendered with DOM nodes (never `innerHTML`). The git panel runs read-only git with `fsmonitor` and external diff/textconv disabled. |
 | Data at rest | `~/.charness` (dirs `0700`, files `0600`): projects, threads, access token. Delete a thread/project in the UI and its file is removed. |
 
@@ -81,10 +81,18 @@ the same data as `npm start` (`~/.charness`); don't run both at the same time.
   (it asks you to type it; macOS may ask "Always Allow" the first time the app reads it):
   `security add-generic-password -a "$USER" -s charness -w`
   Or skip this if you're already logged in to Claude Code on the Mac.
-* **Window:** the app is a small native Swift program (`mac/Sources/Charness`, AppKit + WKWebView, no third-party code).
-  It shows only this server; links in chats open in your default browser. No browser is launched, so no
-  extensions can read your chats and no extra tabs or windows pile up. Edit menu, ⌘R reload and ⌘= / ⌘- / ⌘0 zoom work.
-  Web Inspector, if you need it: `defaults write local.charness.app CharnessInspectable -bool true`.
+* **Window:** the app is a small native Swift program (`mac/Sources/Charness`, AppKit + SwiftUI, no third-party
+  code) with native screens: the same sidebar, chat, approvals, attachments and Changes/Network panels as the web
+  UI. They talk to the in-app server over loopback exactly like the web UI does (token, cookie, every check).
+  ⌘N new thread, ⌘O add a project folder, ⌥⌘1 / ⌥⌘2 Changes / Network, ⌘R reload. Links in chats open in your
+  default browser. No browser is launched, so no extensions can read your chats and no extra tabs pile up.
+* **Web interface fallback:** View ▸ Use Web Interface shows `public/` in the window instead (WKWebView, as
+  before; ⌘= / ⌘- / ⌘0 zoom there). The choice is remembered. Web Inspector, if you need it:
+  `defaults write local.charness.app CharnessInspectable -bool true`.
+* **PATH:** apps opened from Finder get a bare PATH, so at launch the app asks your login shell for its PATH
+  (`$SHELL -i -l -c`, given up after 5 s) and hands that to Claude Code: its commands find Homebrew, nvm…
+  tools as in Terminal. Only PATH is taken from the shell. Off with
+  `defaults write local.charness.app CharnessShellPath -bool false`.
 * The built-in Mac permission prompts (Documents, Desktop…) appear for folders you add as projects. That's macOS.
 * **Tools** (Command Line Tools are enough, no Xcode): `swift run --package-path mac charness-check` checks your
   real `~/.charness` against the store (read-only: it never changes a file or prints chat contents);
@@ -132,11 +140,14 @@ mac/              Swift package (no third-party packages)
                            Guard.swift                 egress guard (CONNECT proxy)
                            Store.swift + JSON.swift    JSON persistence, byte-compatible with JavaScript
                            Uploads.swift               attached files
-  Sources/Charness       the macOS app: the server in-process + a WKWebView window
+                           Client.swift                the native screens' API client, live feed and state
+                           Markdown.swift              port of public/md.js for the native screens
+                           ShellPath.swift             the login shell's PATH, for the app
+  Sources/Charness       the macOS app: the server in-process + native SwiftUI screens (web UI as fallback)
   Sources/charness-server the server in a terminal (npm start)
   Sources/core-checks    self-test (npm run check); expected results in mac/Fixtures
   Sources/charness-check read-only check of your data
   Sources/claude-spike   one real turn in the terminal
 scripts/          make-mac-app.sh (builds Charness.app)
-test/smoke.mjs    29 end-to-end checks against the server in mock mode (npm test)
+test/smoke.mjs    31 end-to-end checks against the server in mock mode (npm test)
 ```
