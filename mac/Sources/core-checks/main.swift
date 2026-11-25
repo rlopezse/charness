@@ -193,6 +193,223 @@ do {
     check("newId(): 12 hex characters, no repeats in 200", ids.allSatisfy { $0.count == 12 && Store.isValidId($0) } && Set(ids).count == 200)
 }
 
+// MARK: - reducer (day 5)
+
+print("reducer matches public/reduce.js (mac/Fixtures/reducer.json)")
+do {
+    let golden = (try? JSONValue.parse(Array((try? Data(contentsOf: fixtures.appendingPathComponent("reducer.json"))) ?? Data())))?.objectValue
+    let sequences = golden?["sequences"]?.arrayValue ?? []
+    var failures: [String] = []
+    var events = 0
+    for sq in sequences.compactMap(\.objectValue) {
+        let name = sq["name"]?.stringValue ?? "?"
+        let evs = sq["events"]?.arrayValue ?? []
+        let wantIdx = sq["indexes"]?.arrayValue?.compactMap(\.doubleValue).map(Int.init) ?? []
+        let snaps = sq["snapshots"]?.arrayValue?.compactMap(\.stringValue)
+        var msgs: [JSONValue] = []
+        var idx: [Int] = []
+        for (n, ev) in evs.enumerated() {
+            idx.append(Reducer.apply(&msgs, ev))
+            events += 1
+            if let snaps = snaps, n < snaps.count, JSONValue.array(msgs).jsonString() != snaps[n] {
+                failures.append("\(name): after event \(n): \(String(JSONValue.array(msgs).jsonString().prefix(160)))")
+                break
+            }
+        }
+        if idx != wantIdx { failures.append("\(name): returned \(idx), JS returned \(wantIdx)") }
+        if JSONValue.array(msgs).jsonString() != sq["final"]?.stringValue { failures.append("\(name): final thread differs") }
+    }
+    for f in failures.prefix(5) { print("      \(f)") }
+    check("\(sequences.count) event sequences (\(events) events): same changed-message index and byte-identical thread every time",
+          sequences.count >= 25 && failures.isEmpty)
+
+    let summaries = golden?["toolSummary"]?.arrayValue?.compactMap(\.objectValue) ?? []
+    let wrong = summaries.filter { c in
+        let input = c["input"] == .null ? nil : c["input"]
+        return toolSummary(c["name"]?.stringValue ?? "", input) != c["summary"]?.stringValue
+    }
+    for c in wrong.prefix(3) {
+        print("      \(c["name"]?.stringValue ?? ""): \(toolSummary(c["name"]?.stringValue ?? "", c["input"]).debugDescription) vs JS \(c["summary"]?.stringValue?.debugDescription ?? "-")")
+    }
+    check("toolSummary() matches the JS on \(summaries.count) cases", summaries.count >= 20 && wrong.isEmpty)
+
+    // a very long streamed answer stays fast: the text grows in place instead of being copied for every
+    // word (copying would move ~100 GB here and take minutes)
+    var msgs: [JSONValue] = []
+    let t0 = Date()
+    for _ in 0..<200_000 { Reducer.apply(&msgs, ["t": "delta", "text": "word "]) }
+    let secs = Date().timeIntervalSince(t0)
+    check("200,000 streamed words (1 MB of text) fold in well under 3 s (\(String(format: "%.2f", secs)) s)",
+          secs < 3 && msgs.first?.objectValue?["blocks"]?.arrayValue?.first?.objectValue?["text"]?.stringValue?.utf8.count == 1_000_000)
+}
+
+// MARK: - egress guard (day 6)
+
+print("egress guard matches lib/guard.mjs")
+check("allow-list rules: exact host, default port 443, explicit port, *.subdomains only, case-insensitive", [
+    EgressGuard.isAllowed(host: "api.anthropic.com", port: 443, allow: ["api.anthropic.com"]),
+    !EgressGuard.isAllowed(host: "api.anthropic.com", port: 8443, allow: ["api.anthropic.com"]),
+    EgressGuard.isAllowed(host: "localhost", port: 8080, allow: ["localhost:8080"]),
+    EgressGuard.isAllowed(host: "a.b.example.org", port: 443, allow: ["*.example.org"]),
+    !EgressGuard.isAllowed(host: "example.org", port: 443, allow: ["*.example.org"]),
+    !EgressGuard.isAllowed(host: "badexample.org", port: 443, allow: ["*.example.org"]),
+    EgressGuard.isAllowed(host: "API.Anthropic.COM", port: 443, allow: ["api.ANTHROPIC.com"]),
+    EgressGuard.isAllowed(host: "x", port: 443, allow: ["x:0443"]),
+    !EgressGuard.isAllowed(host: "x", port: 443, allow: ["x:"]),
+    !EgressGuard.isAllowed(host: "evil.com", port: 443, allow: []),
+].allSatisfy { $0 })
+
+/// Sends raw bytes to 127.0.0.1:port and returns everything received until the other side closes
+/// (or `marker` shows up, or nothing arrives for 3 s).
+func probe(_ port: Int, _ request: String, until marker: String? = nil) -> String {
+    guard let fd = Net.connect(host: "127.0.0.1", port: port) else { return "<cannot connect>" }
+    defer { _ = close(fd) }
+    Net.setReceiveTimeout(fd, 3)
+    Net.sendAll(fd, Array(request.utf8))
+    var got: [UInt8] = []
+    while let chunk = Net.receive(fd) {
+        got += chunk
+        if let m = marker, String(decoding: got, as: UTF8.self).contains(m) { break }
+    }
+    return String(decoding: got, as: UTF8.self)
+}
+
+if let node = ClaudeLaunch.which("node") {
+    // the Node guard (twice: direct and chained), the servers they tunnel to and a fake corporate proxy
+    let peer = Process()
+    peer.executableURL = URL(fileURLWithPath: node)
+    peer.arguments = [fixtures.appendingPathComponent("guard-peer.mjs").path]
+    let peerIn = Pipe(), peerOut = Pipe()
+    peer.standardInput = peerIn
+    peer.standardOutput = peerOut
+    let peerLock = NSLock()
+    var peerLines: [JSONObject] = []
+    try? peer.run()
+    Thread.detachNewThread {
+        var buf: [UInt8] = []
+        while true {
+            let chunk = peerOut.fileHandleForReading.availableData   // a pipe, not a socket: read, not recv
+            if chunk.isEmpty { break }
+            buf += chunk
+            while let nl = buf.firstIndex(of: 10) {
+                if let o = (try? JSONValue.parse(Array(buf[..<nl])))?.objectValue { peerLock.lock(); peerLines.append(o); peerLock.unlock() }
+                buf.removeSubrange(...nl)
+            }
+        }
+    }
+    var ready: JSONObject?
+    for _ in 0..<100 where ready == nil {
+        Thread.sleep(forTimeInterval: 0.1)
+        peerLock.lock(); ready = peerLines.first { $0["ready"] == true }; peerLock.unlock()
+    }
+    if let ready = ready {
+        let port = { (k: String) in Int(ready[k]?.doubleValue ?? 0) }
+        let allow = ready["allow"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        let swiftLock = NSLock()
+        var swiftLog: [(String, GuardLogEntry)] = []
+        let direct = EgressGuard(allowList: { allow }) { e in swiftLock.lock(); swiftLog.append(("direct", e)); swiftLock.unlock() }
+        let chained = EgressGuard(allowList: { allow }, upstream: "http://us%40er:p%40ss@127.0.0.1:\(port("proxy"))") { e in
+            swiftLock.lock(); swiftLog.append(("chained", e)); swiftLock.unlock()
+        }
+        let swiftDirect = (try? direct.start()) ?? 0, swiftChained = (try? chained.start()) ?? 0
+        let echo = port("echo"), pong = port("pong")
+
+        // the same requests to both guards; plain-HTTP answers are compared by status line and body only,
+        // because Node adds a Date header and keeps the connection open
+        let blocked = "blocked by charness egress guard\n"
+        let probes: [(String, Bool, String, String?)] = [
+            ("unlisted host", false, "CONNECT telemetry.example.com:443 HTTP/1.1\r\nHost: telemetry.example.com:443\r\n\r\n", nil),
+            ("allowed host, wrong port", false, "CONNECT api.anthropic.com:8443 HTTP/1.1\r\n\r\n", nil),
+            ("allowed: tunnels through", false, "CONNECT 127.0.0.1:\(echo) HTTP/1.1\r\nHost: 127.0.0.1:\(echo)\r\n\r\n", nil),
+            ("bytes sent right after CONNECT reach the server", false, "CONNECT 127.0.0.1:\(pong) HTTP/1.1\r\n\r\nPING", nil),
+            ("name allowed in another case, resolved locally", false, "CONNECT localhost:\(echo) HTTP/1.1\r\n\r\n", nil),
+            ("*.example.org does not cover example.org", false, "CONNECT example.org:443 HTTP/1.1\r\n\r\n", nil),
+            ("port out of range", false, "CONNECT x.com:99999 HTTP/1.1\r\n\r\n", nil),
+            ("bad host characters: closed, not logged", false, "CONNECT bad_host!:443 HTTP/1.1\r\n\r\n", nil),
+            ("no port: closed, not logged", false, "CONNECT example.com HTTP/1.1\r\n\r\n", nil),
+            ("malformed request line", false, "CONNECT a b:443 HTTP/1.1\r\n\r\n", nil),
+            ("unknown method", false, "BREW coffee HTTP/1.1\r\n\r\n", nil),
+            ("lowercase method", false, "connect x.com:443 HTTP/1.1\r\n\r\n", nil),
+            ("HTTP/1.0 and HTTP/2.0 request lines", false, "CONNECT x.com:443 HTTP/1.0\r\n\r\n", nil),
+            ("HTTP/2.0", false, "CONNECT x.com:443 HTTP/2.0\r\n\r\n", nil),
+            ("headers over 16 KB", false, "CONNECT x.com:443 HTTP/1.1\r\nX: \(String(repeating: "a", count: 20_000))\r\n\r\n", nil),
+            ("over 16 KB of headers that never end", false, "CONNECT x.com:443 HTTP/1.1\r\nX: \(String(repeating: "a", count: 20_000))", nil),
+            ("plain http is refused", false, "GET http://Example.com/x HTTP/1.1\r\nHost: example.com\r\n\r\n", blocked),
+            ("plain http, no absolute URL", false, "GET /x HTTP/1.1\r\nHost: a\r\n\r\n", blocked),
+            ("chained through the user's proxy, with its login", true, "CONNECT 127.0.0.1:\(echo) HTTP/1.1\r\n\r\n", nil),
+            ("the user's proxy refuses: 502", true, "CONNECT 127.0.0.1:1 HTTP/1.1\r\n\r\n", nil),
+        ]
+        func normal(_ r: String, plain: Bool) -> String {
+            guard plain else { return r }
+            return (r.components(separatedBy: "\r\n").first ?? "") + (r.contains(blocked) ? " | " + blocked : " | no body")
+        }
+        var mismatches: [String] = []
+        for (name, viaProxy, request, marker) in probes {
+            let a = probe(viaProxy ? port("chained") : port("direct"), request, until: marker)
+            let b = probe(viaProxy ? swiftChained : swiftDirect, request, until: marker)
+            if normal(a, plain: marker != nil) != normal(b, plain: marker != nil) {
+                mismatches.append("\(name): Node \(a.prefix(80).debugDescription) vs Swift \(b.prefix(80).debugDescription)")
+            }
+        }
+        for m in mismatches.prefix(5) { print("      \(m)") }
+        check("\(probes.count) requests (allowed, refused, malformed, plain http, chained): the same answers as the Node guard", mismatches.isEmpty)
+
+        Thread.sleep(forTimeInterval: 0.5)
+        peerLock.lock(); let lines = peerLines; peerLock.unlock()
+        swiftLock.lock(); let mine = swiftLog; swiftLock.unlock()
+        func noTs(_ o: JSONObject) -> JSONValue { var c = o; c["ts"] = nil; return .object(c) }
+        let nodeLog = lines.compactMap { l -> JSONValue? in
+            guard let g = l["guard"]?.stringValue, let e = l["entry"]?.objectValue else { return nil }
+            return ["guard": .string(g), "entry": noTs(e)]
+        }
+        let swiftLogJSON = mine.map { g, e -> JSONValue in ["guard": .string(g), "entry": noTs(e.json.objectValue!)] }
+        if nodeLog != swiftLogJSON { print("      Node log: \(nodeLog.count) entries, Swift log: \(swiftLogJSON.count)") }
+        check("the same \(nodeLog.count) log entries, in the same order (host, port, allowed, note)", !nodeLog.isEmpty && nodeLog == swiftLogJSON)
+
+        let proxyRequests = lines.compactMap { $0["proxyRequest"]?.stringValue }
+        check("the same request to the user's proxy, with Proxy-Authorization from the URL's login",
+              proxyRequests.count == 4 && proxyRequests[0] == proxyRequests[1] && proxyRequests[2] == proxyRequests[3]
+              && proxyRequests[0].contains("Proxy-Authorization: Basic dXNAZXI6cEBzcw==\r\n"))
+
+        direct.stop(); chained.stop()
+        check("after stop() the guard accepts no connections", probe(swiftDirect, "CONNECT 127.0.0.1:\(echo) HTTP/1.1\r\n\r\n") == "<cannot connect>")
+    } else {
+        check("the Node guard peer started", false)
+    }
+    try? peerIn.fileHandleForWriting.close()
+    peer.waitUntilExit()
+} else {
+    print("  - skipped: node not found on PATH (needed to run the Node guard side by side)")
+}
+
+// MARK: - server paths (days 7-8)
+
+print("server paths are handled like Node's")
+do {
+    let base = URL(fileURLWithPath: realPath(tempDir().deletingLastPathComponent()))
+    let dir = base.appendingPathComponent("charness-paths-\(UUID().uuidString)").path
+    temps.append(URL(fileURLWithPath: dir))
+    let nfc = "Código ñ"                                   // precomposed: ó and ñ as one character each
+    let nfd = "Co\u{301}digo n\u{303}"                      // decomposed: o + ´, n + ~
+    _ = mkdir(dir, 0o700); _ = mkdir(dir + "/" + nfc, 0o700); _ = mkdir(dir + "/real", 0o700)
+    _ = symlink(dir + "/real", dir + "/link")
+    _ = symlink("../real", dir + "/real/up")
+    let got = CharnessServer.realPath(dir + "/" + nfc)
+    check("realPath keeps the name's bytes as given (no decomposition) and follows symlinks",
+          got.map { Array($0.utf8) } == Array((dir + "/" + nfc).utf8)
+          && CharnessServer.realPath(dir + "/link/up/./") == dir + "/real"
+          && CharnessServer.realPath(dir + "/missing") == nil
+          && Array(nfc.utf8) != Array(nfd.utf8))   // (the two spellings really are different bytes)
+    check("resolve() like path.resolve()", CharnessServer.resolve("a/./b/../c//", cwd: "/x/y") == "/x/y/a/c"
+          && CharnessServer.resolve("/../..", cwd: "/x") == "/" && CharnessServer.resolve("", cwd: "/x/y") == "/x/y")
+    let up = Uploads(home: URL(fileURLWithPath: dir))
+    let saved = try? up.save("abc123", name: "foto \(nfc).png", bytes: [1, 2, 3])
+    let listed = (try? FileManager.default.contentsOfDirectory(atPath: up.dir("abc123"))) ?? []
+    check("uploaded file names are stored with exactly the bytes they came with",
+          saved?.name == "foto \(nfc).png" && listed.count == 1
+          && listed.first.map { Array($0.utf8) } == Array("foto \(nfc).png".utf8) && up.find("abc123", .string("foto \(nfc).png"))?.size == 3)
+}
+
 // MARK: - Claude Code bridge (day 3)
 
 print("talks to Claude Code like the Agent SDK")

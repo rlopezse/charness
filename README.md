@@ -62,13 +62,16 @@ Add a project folder in the sidebar (type its path), press **+** for a thread, a
 ## Run it as a Mac app
 
 ```bash
-xcode-select --install             # once, if you don't have the Command Line Tools (for swiftc)
+xcode-select --install             # once, if you don't have the Command Line Tools (for Swift)
+npm install                        # once: downloads the Claude Code binary the app runs
 ./scripts/make-mac-app.sh          # builds  ~/Applications/Charness.app
 ```
 
-Double-click the app: it starts the server and shows the UI in its own native window. **Cmd-Q (or Dock → Quit)
-stops the server.** Closing the window keeps the server running; clicking the Dock icon brings the same window back. The app points at this folder, so keep it where it is
-(re-run the script if you move it). Logs: `~/.charness/server.log`.
+Double-click the app: the Charness server runs inside it (Swift; no Node at run time) and the UI opens in its own
+native window. **Cmd-Q (or Dock → Quit) stops it.** Closing the window keeps it running; clicking the Dock icon
+brings the same window back. The app points at this folder, so keep it where it is (re-run the script if you
+move it). It uses the same data as `npm start` (`~/.charness`), so you can switch between them; on launch it stops
+a Node server the previous version of the app may have left running.
 
 * **API key:** apps don't see what you `export` in Terminal. Store the key once in the Keychain instead
   (it asks you to type it; macOS may ask "Always Allow" the first time the app reads it):
@@ -85,8 +88,12 @@ stops the server.** Closing the window keeps the server running; clicking the Do
   `swift run --package-path mac claude-spike "your prompt"` runs one turn with the real Claude Code straight from
   Swift (no Node, no Agent SDK), asking approvals in the terminal; Ctrl-C stops it. It skips the egress guard.
   Add `--mock` to use the built-in mock instead of Claude (like `npm run mock`).
-* Only the Linux-testable parts (`scripts/launch.sh`: start/stop, port fallback, Node discovery, error messages)
-  were run by me; the Swift app, `swiftc`, `codesign` and Keychain run only on a Mac.
+* **The Swift server** (`mac/Sources/CharnessCore/Server.swift`) is a port of `server.mjs`; `npm run test:swift`
+  runs `test/smoke.mjs` against it and `test/compare-servers.mjs`, which replays one session on both servers and
+  requires the same replies, live events and files on disk. `swift run --package-path mac charness-server` runs it
+  in the terminal with the same flags as `node server.mjs`.
+* The Swift server, the HTTP layer, the guard and all checks were built and run on Linux by me; the app itself
+  (AppKit, the Keychain, `codesign`) only builds and runs on a Mac.
 
 ## Settings (environment variables / flags)
 
@@ -114,14 +121,18 @@ lib/guard.mjs     egress guard (CONNECT proxy)               (~95)
 lib/store.mjs     JSON persistence                           (~70)
 lib/uploads.mjs   attached files (per-thread folder, safe names)
 public/           index.html, app.js, md.js, reduce.js, style.css
-mac/              Swift package (see mac/Package.swift and SWIFT_PORT_PLAN.md)
+mac/              Swift package (see mac/Package.swift and SWIFT_PORT_PLAN.md); Charness.app runs its server
   Sources/Charness       native macOS window (AppKit + WKWebView)
   Sources/CharnessCore   Foundation-only ports of the Node code: JSON.swift, Store.swift (lib/store.mjs),
                          ClaudeProcess.swift + Turn.swift (lib/agent.mjs: talks to Claude Code directly),
-                         Mock.swift (the mock backend)
+                         Mock.swift (the mock backend), Reducer.swift (public/reduce.js),
+                         Guard.swift (lib/guard.mjs), Uploads.swift (lib/uploads.mjs),
+                         HTTP.swift + Server.swift (server.mjs)
+  Sources/charness-server the Swift server as a terminal program (same flags as server.mjs)
   Sources/claude-spike   one turn with the real Claude Code from Swift, in the terminal
   Sources/core-checks    self-test (fixtures in mac/Fixtures are real Node output)
   Sources/charness-check read-only check of your data against the Swift store
 scripts/          launch.sh (start/stop for the app), make-mac-app.sh (builds mac/ into Charness.app)
-test/smoke.mjs    22 end-to-end checks in mock mode
+test/smoke.mjs    29 end-to-end checks in mock mode (CHARNESS_SERVER=... runs them on the Swift server)
+test/compare-servers.mjs  same session on the Node and Swift servers; replies, events and files must match
 ```

@@ -13,6 +13,8 @@ public final class MockClaude: ClaudeBackend, @unchecked Sendable {
     public var onPermissionCancelled: (String) -> Void = { _ in }
     public var onProtocolError: (String) -> Void = { _ in }
     public var label: String { "mock" }
+    /// Like the Node mock: after Stop it still reports the step it was on, then gives up at its next word.
+    public var stopsReportingOnStop: Bool { false }
 
     private let cwd: String
     private let model: String?

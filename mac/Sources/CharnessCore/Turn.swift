@@ -171,7 +171,7 @@ final class ActivityTracker {
     private var steps: [Step] = []
     private var byId: [String: Step] = [:]
     private var current: String?
-    private var since = Date().timeIntervalSince1970 * 1000
+    private var since = (Date().timeIntervalSince1970 * 1000).rounded(.down)
     private let report: (Activity) -> Void
 
     init(_ report: @escaping (Activity) -> Void) { self.report = report }
@@ -186,7 +186,7 @@ final class ActivityTracker {
     func now(_ text: String?) {
         if text == current { return }
         current = text
-        since = Date().timeIntervalSince1970 * 1000
+        since = (Date().timeIntervalSince1970 * 1000).rounded(.down)
         send()
     }
     func tool(_ id: String, _ name: String, _ input: JSONValue?, sub: Bool) {
@@ -196,7 +196,7 @@ final class ActivityTracker {
         steps.append(s); byId[id] = s
         if steps.count > 200 { byId[steps.removeFirst().id] = nil }
         current = label(s)
-        since = Date().timeIntervalSince1970 * 1000
+        since = (Date().timeIntervalSince1970 * 1000).rounded(.down)
         send()
     }
     func running(_ id: String) { if let s = byId[id] { now(label(s)) } }
@@ -225,6 +225,7 @@ public final class ClaudeTurn: @unchecked Sendable {
     private let prompt: String
     private let stopLock = NSLock()
     private var stopped = false
+    private let dropAfterStop: Bool
     // only touched on the process's queue (message callbacks) or after it has drained
     private var streamed = Set<String>()
     private var shown = ""
@@ -241,6 +242,7 @@ public final class ClaudeTurn: @unchecked Sendable {
     public init(backend: ClaudeBackend, prompt: String) {
         process = backend
         self.prompt = prompt
+        dropAfterStop = backend.stopsReportingOnStop
     }
 
     private var isStopped: Bool { stopLock.lock(); defer { stopLock.unlock() }; return stopped }
@@ -253,7 +255,8 @@ public final class ClaudeTurn: @unchecked Sendable {
 
     /// Runs the turn to the end. Blocks.
     public func run() {
-        process.onMessage = { [unowned self] msg in if !self.isStopped { self.handle(msg) } }
+        // after Stop the Agent SDK reports nothing more from claude; the Node mock does finish its current step
+        process.onMessage = { [unowned self] msg in if !(self.dropAfterStop && self.isStopped) { self.handle(msg) } }
         process.onProtocolError = { [unowned self] text in self.protocolError = text }
         process.onPermissionCancelled = { [unowned self] id in self.onPermissionCancelled(id) }
         process.onPermission = { [unowned self] req, answer in

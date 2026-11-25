@@ -1,6 +1,7 @@
 #!/bin/bash
-# Builds "Charness.app": a native Swift app (Swift package in mac/) that starts the server, shows the UI in ONE
-# window of its own (WKWebView, no browser involved), and stops the server when you Quit it.
+# Builds "Charness.app": a native Swift app (Swift package in mac/). The Charness server runs inside the app
+# (no Node at run time), the UI is shown in ONE window of its own (WKWebView, no browser involved), and
+# quitting stops it. Claude Code itself is the binary `npm install` puts in node_modules (or HARNESS_CLAUDE_BIN).
 # Run this on your Mac:
 #     ./scripts/make-mac-app.sh                  # installs to ~/Applications
 #     ./scripts/make-mac-app.sh /some/folder     # or somewhere else
@@ -45,8 +46,8 @@ if [ "$(uname)" != Darwin ]; then echo "This builds a macOS app, so run it on yo
 if ! xcrun --sdk macosx --find swift >/dev/null 2>&1; then
   echo "Swift not found. Install the Xcode Command Line Tools first:  xcode-select --install" >&2; exit 1
 fi
-if [ ! -d "$HERE/node_modules/@anthropic-ai/claude-agent-sdk" ]; then
-  echo "Run 'npm install' in $HERE first." >&2; exit 1
+if ! ls "$HERE"/node_modules/@anthropic-ai/claude-agent-sdk-darwin-*/claude >/dev/null 2>&1; then
+  echo "Run 'npm install' in $HERE first: it downloads the Claude Code binary the app runs." >&2; exit 1
 fi
 
 DEST="${1:-$HOME/Applications}"

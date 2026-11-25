@@ -10,7 +10,8 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-test-'));
+// resolved like the server resolves project folders (on macOS the temp folder is a symlink into /private)
+const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-test-')));
 const proj = path.join(tmp, 'proj'); fs.mkdirSync(proj);
 const PORT = 4300 + Math.floor(Math.random() * 500);
 
@@ -20,7 +21,14 @@ await new Promise((r) => echo.once('listening', r));
 const echoPort = echo.address().port;
 let sse = null;            // live-event stream, opened once we have the cookie
 
-const child = spawn(process.execPath, [path.join(ROOT, 'server.mjs'), '--mock', '--port', String(PORT)], {
+// CHARNESS_SERVER=<binary> runs the same checks against another server, e.g. the Swift one
+// (mac/.build/debug/charness-server); by default the Node server is tested.
+const SERVER = process.env.CHARNESS_SERVER;
+const [cmd, cmdArgs] = SERVER
+  ? [SERVER, ['--root', ROOT, '--mock', '--port', String(PORT)]]
+  : [process.execPath, [path.join(ROOT, 'server.mjs'), '--mock', '--port', String(PORT)]];
+console.log(`server: ${SERVER || 'node server.mjs'}`);
+const child = spawn(cmd, cmdArgs, {
   env: { ...process.env, HARNESS_HOME: path.join(tmp, 'home'), HARNESS_UPSTREAM_PROXY: '', HTTPS_PROXY: '', https_proxy: '', HARNESS_ALLOW_HOSTS: `127.0.0.1:${echoPort}` },
   stdio: ['ignore', 'pipe', 'inherit'],
 });

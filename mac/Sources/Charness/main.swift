@@ -1,54 +1,79 @@
-// Charness.app: a native macOS window around the existing Node server.
-//
-// It starts the server with scripts/launch.sh (the same start/stop logic the old AppleScript applet used),
-// shows the UI in ONE WKWebView window instead of a Chrome window per launch, and stops the server on Quit.
+// Charness.app: the whole Charness server runs inside this app (Swift, CharnessCore) and its web UI is shown
+// in ONE WKWebView window. No Node process: Claude Code itself is the only other program it starts.
+// Quitting stops the server (and any running turn) and writes what is pending to disk.
 // Built by scripts/make-mac-app.sh (swift build); no Xcode project and no third-party code.
 
 #if canImport(AppKit)
 import AppKit
 import WebKit
+import CharnessCore
 
-struct LaunchResult {
-    let status: Int32
-    let output: String
-}
-
-// Runs `launch.sh <command>` and waits for it. Kept outside the app delegate so it can run off the main thread.
-enum Launcher {
-    static func run(_ script: String, _ command: String) -> LaunchResult {
+/// Getting the server going, done off the main thread.
+enum Startup {
+    /// The previous app ran the Node server through scripts/launch.sh. Stop one it may have left running, so
+    /// two servers never write the same data.
+    static func stopLeftoverNodeServer(root: String) {
+        let script = root + "/scripts/launch.sh"
+        guard FileManager.default.fileExists(atPath: script) else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/bash")
-        p.arguments = [script, command]
-        var env = ProcessInfo.processInfo.environment
-        env["HARNESS_LAUNCH_NO_UI"] = "1"   // launch.sh must not open a browser; this app is the window
-        p.environment = env
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        p.standardError = pipe
+        p.arguments = [script, "stop"]
         p.standardInput = FileHandle.nullDevice
-        do { try p.run() } catch {
-            return LaunchResult(status: -1, output: "Could not run \(script): \(error.localizedDescription)")
-        }
-        // launch.sh sends the server's own output to ~/.charness/server.log, so this pipe closes when the script exits.
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        if (try? p.run()) != nil { p.waitUntilExit() }
+    }
+
+    /// Apps don't see what you `export` in Terminal: if ANTHROPIC_API_KEY isn't set, read it from the Keychain
+    /// (item "charness"), as launch.sh did. Without one, Claude Code uses its own login on this Mac.
+    static func environment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        guard (env["ANTHROPIC_API_KEY"] ?? "").isEmpty else { return env }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        p.arguments = ["find-generic-password", "-a", NSUserName(), "-s", "charness", "-w"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        p.standardInput = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return env }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
-        return LaunchResult(status: p.terminationStatus, output: String(decoding: data, as: UTF8.self))
+        let key = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if p.terminationStatus == 0 && !key.isEmpty { env["ANTHROPIC_API_KEY"] = key }
+        return env
+    }
+
+    /// Starts the server on the first free port from 4317 (as launch.sh did).
+    static func start(root: String) -> Result<CharnessServer, Error> {
+        stopLeftoverNodeServer(root: root)
+        var config = ServerConfig(root: URL(fileURLWithPath: root, isDirectory: true), environment: environment())
+        let first = config.port
+        for port in first...(first + 20) {
+            config.port = port
+            do {
+                let server = try CharnessServer(config: config)
+                try server.start()
+                return .success(server)
+            } catch StoreError.io(_, _, let code) where code == EADDRINUSE {
+                continue
+            } catch {
+                return .failure(error)
+            }
+        }
+        return .failure(StoreError.io(path: "127.0.0.1:\(first)-\(first + 20)", operation: "listen (no free port)", code: EADDRINUSE))
     }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
+    private var server: CharnessServer?
     private var port: Int?
     private var tokenURL: URL?
     private var quitting = false
 
     private let root: String = (Bundle.main.object(forInfoDictionaryKey: "CharnessRoot") as? String) ?? ""
-    private var launcher: String { root + "/scripts/launch.sh" }
-    private let dataDir: String = {
-        if let h = ProcessInfo.processInfo.environment["HARNESS_HOME"], !h.isEmpty { return h }
-        return NSHomeDirectory() + "/.charness"
-    }()
 
     // MARK: lifecycle
 
@@ -58,16 +83,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         buildWindow()
         NSApp.activate(ignoringOtherApps: true)
 
-        guard !root.isEmpty, FileManager.default.fileExists(atPath: launcher) else {
+        guard !root.isEmpty, FileManager.default.fileExists(atPath: root + "/public/index.html") else {
             fail("Charness couldn't start",
-                 "The project folder was not found (\(root.isEmpty ? "not set" : root)). "
+                 "The Charness folder was not found (\(root.isEmpty ? "not set" : root)). "
                  + "Re-run scripts/make-mac-app.sh from the charness folder.")
             return
         }
 
-        let script = launcher
+        let root = self.root
         Task { @MainActor in
-            let result = await Task.detached(priority: .userInitiated) { Launcher.run(script, "start") }.value
+            let result = await Task.detached(priority: .userInitiated) { Startup.start(root: root) }.value
             self.serverStarted(result)
         }
     }
@@ -85,37 +110,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         if quitting { return .terminateCancel }   // a stop is already in progress; that one will finish the quit
         quitting = true
         window?.orderOut(nil)
-        let script = launcher
+        let running = server
         Task { @MainActor in
-            _ = await Task.detached(priority: .userInitiated) { Launcher.run(script, "stop") }.value
+            await Task.detached(priority: .userInitiated) { running?.stop() }.value
             NSApp.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
     }
 
-    private func serverStarted(_ r: LaunchResult) {
-        guard r.status == 0, let url = readServerURL() else {
-            let msg = r.output.trimmingCharacters(in: .whitespacesAndNewlines)
-            fail("Charness couldn't start", msg.isEmpty ? "See \(dataDir)/server.log" : msg)
-            return
+    private func serverStarted(_ result: Result<CharnessServer, Error>) {
+        switch result {
+        case .failure(let error):
+            fail("Charness couldn't start", "\(error)")
+        case .success(let s):
+            server = s
+            port = s.port
+            guard let url = URL(string: s.link) else { return fail("Charness couldn't start", "Bad address: \(s.link)") }
+            tokenURL = url
+            webView.load(URLRequest(url: url))
         }
-        tokenURL = url
-        webView.load(URLRequest(url: url))
-    }
-
-    // launch.sh writes the port; the server writes the token. The token is base64url, but encode it anyway.
-    private func readServerURL() -> URL? {
-        func read(_ name: String) -> String? {
-            guard let s = try? String(contentsOfFile: dataDir + "/" + name, encoding: .utf8) else { return nil }
-            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-            return t.isEmpty ? nil : t
-        }
-        guard let p = read("server.port").flatMap(Int.init), let token = read("token") else { return nil }
-        port = p
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-_")
-        let enc = token.addingPercentEncoding(withAllowedCharacters: allowed) ?? token
-        return URL(string: "http://127.0.0.1:\(p)/?token=\(enc)")
     }
 
     private func fail(_ title: String, _ message: String) {
@@ -186,13 +199,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         return nil
     }
 
+    // <input type="file"> (the 📎 button): a WKWebView shows no file picker unless the app provides one.
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.resolvesAliases = true
+        panel.prompt = "Attach"
+        panel.message = "Choose files to attach to your message"
+        panel.beginSheetModal(for: window) { response in
+            completionHandler(response == .OK ? panel.urls : nil)
+        }
+    }
+
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         let ns = error as NSError
         if tokenURL == nil || (ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled) { return }
         webView.loadHTMLString(
             "<body style='font:13px -apple-system;color:#888;padding:2em'>Can't reach the Charness server "
-            + "(\(error.localizedDescription)).<br>Press ⌘R to retry, or quit and reopen the app. "
-            + "Log: \(dataDir)/server.log</body>", baseURL: nil)
+            + "(\(error.localizedDescription)).<br>Press ⌘R to retry, or quit and reopen the app.</body>", baseURL: nil)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
