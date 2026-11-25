@@ -1,0 +1,1924 @@
+[
+ {
+  "name": "plain paragraph",
+  "src": "Hello, world.",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "Hello, world."
+   ]
+  ]
+ },
+ {
+  "name": "two lines make one paragraph with a break",
+  "src": "line one\nline two",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "line one",
+    [
+     "br",
+     {}
+    ],
+    "line two"
+   ]
+  ]
+ },
+ {
+  "name": "paragraphs split by a blank line",
+  "src": "one\n\ntwo\n\n\nthree",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "one"
+   ],
+   [
+    "p",
+    {},
+    "two"
+   ],
+   [
+    "p",
+    {},
+    "three"
+   ]
+  ]
+ },
+ {
+  "name": "headings (shifted two levels, max h6)",
+  "src": "# One\n## Two\n### Three\n#### Four\n###### Six\n####### seven is not one\n#nospace",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "h3",
+    {},
+    "One"
+   ],
+   [
+    "h4",
+    {},
+    "Two"
+   ],
+   [
+    "h5",
+    {},
+    "Three"
+   ],
+   [
+    "h6",
+    {},
+    "Four"
+   ],
+   [
+    "h6",
+    {},
+    "Six"
+   ],
+   [
+    "p",
+    {},
+    "####### seven is not one",
+    [
+     "br",
+     {}
+    ],
+    "#nospace"
+   ]
+  ]
+ },
+ {
+  "name": "inline styles",
+  "src": "a **bold** and __bold__ and *em* and `code` and ~~gone~~ end",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "a ",
+    [
+     "strong",
+     {},
+     "bold"
+    ],
+    " and ",
+    [
+     "strong",
+     {},
+     "bold"
+    ],
+    " and ",
+    [
+     "em",
+     {},
+     "em"
+    ],
+    " and ",
+    [
+     "code",
+     {
+      "class": "ic"
+     },
+     "code"
+    ],
+    " and ",
+    [
+     "del",
+     {},
+     "gone"
+    ],
+    " end"
+   ]
+  ]
+ },
+ {
+  "name": "nested inline",
+  "src": "**bold with *em* and `code` inside** and *em with **bold***",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "*",
+    [
+     "em",
+     {},
+     "bold with "
+    ],
+    "em* and ",
+    [
+     "code",
+     {
+      "class": "ic"
+     },
+     "code"
+    ],
+    " inside** and ",
+    [
+     "em",
+     {},
+     "em with "
+    ],
+    [
+     "em",
+     {},
+     "bold"
+    ],
+    "**"
+   ]
+  ]
+ },
+ {
+  "name": "star rules for em",
+  "src": "a * b * c and 2*3*4 and *x*",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "a * b * c and 2",
+    [
+     "em",
+     {},
+     "3"
+    ],
+    "4 and ",
+    [
+     "em",
+     {},
+     "x"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "links: only http(s) and mailto",
+  "src": "see [docs](https://example.com/a?b=1) or [mail](mailto:a@b.c) or [js](javascript:alert(1)) or [rel](/x)",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "see ",
+    [
+     "a",
+     {
+      "href": "https://example.com/a?b=1",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "docs"
+    ],
+    " or ",
+    [
+     "a",
+     {
+      "href": "mailto:a@b.c",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "mail"
+    ],
+    " or [js](javascript:alert(1)) or [rel](/x)"
+   ]
+  ]
+ },
+ {
+  "name": "link text with styles is kept as text",
+  "src": "[**b**](http://x.y)",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    [
+     "a",
+     {
+      "href": "http://x.y",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "**b**"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "code fence with language",
+  "src": "```swift\nlet x = 1\n  indented\n\n```\nafter",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "div",
+    {
+     "class": "code"
+    },
+    [
+     "div",
+     {
+      "class": "codehead"
+     },
+     [
+      "span",
+      {},
+      "swift"
+     ],
+     [
+      "button",
+      {
+       "class": "copy"
+      },
+      "Copy"
+     ]
+    ],
+    [
+     "pre",
+     {},
+     [
+      "code",
+      {},
+      "let x = 1\n  indented\n"
+     ]
+    ]
+   ],
+   [
+    "p",
+    {},
+    "after"
+   ]
+  ]
+ },
+ {
+  "name": "code fence without language, never closed (streaming)",
+  "src": "```\nstill typing",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "div",
+    {
+     "class": "code"
+    },
+    [
+     "div",
+     {
+      "class": "codehead"
+     },
+     [
+      "span",
+      {},
+      "text"
+     ],
+     [
+      "button",
+      {
+       "class": "copy"
+      },
+      "Copy"
+     ]
+    ],
+    [
+     "pre",
+     {},
+     [
+      "code",
+      {},
+      "still typing"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "code fence keeps markdown as is",
+  "src": "```md\n# not a heading\n**not bold**\n```",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "div",
+    {
+     "class": "code"
+    },
+    [
+     "div",
+     {
+      "class": "codehead"
+     },
+     [
+      "span",
+      {},
+      "md"
+     ],
+     [
+      "button",
+      {
+       "class": "copy"
+      },
+      "Copy"
+     ]
+    ],
+    [
+     "pre",
+     {},
+     [
+      "code",
+      {},
+      "# not a heading\n**not bold**"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "odd fence info",
+  "src": "```c++ \nint x;\n```\n``` objective-c.m\n@end\n```",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "div",
+    {
+     "class": "code"
+    },
+    [
+     "div",
+     {
+      "class": "codehead"
+     },
+     [
+      "span",
+      {},
+      "c++"
+     ],
+     [
+      "button",
+      {
+       "class": "copy"
+      },
+      "Copy"
+     ]
+    ],
+    [
+     "pre",
+     {},
+     [
+      "code",
+      {},
+      "int x;"
+     ]
+    ]
+   ],
+   [
+    "div",
+    {
+     "class": "code"
+    },
+    [
+     "div",
+     {
+      "class": "codehead"
+     },
+     [
+      "span",
+      {},
+      "objective-c.m"
+     ],
+     [
+      "button",
+      {
+       "class": "copy"
+      },
+      "Copy"
+     ]
+    ],
+    [
+     "pre",
+     {},
+     [
+      "code",
+      {},
+      "@end"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "unordered list",
+  "src": "- one\n- two\n* three\n+ four",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "one"
+    ],
+    [
+     "li",
+     {},
+     "two"
+    ],
+    [
+     "li",
+     {},
+     "three"
+    ],
+    [
+     "li",
+     {},
+     "four"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "ordered list",
+  "src": "1. one\n2) two\n10. ten",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ol",
+    {},
+    [
+     "li",
+     {},
+     "one"
+    ],
+    [
+     "li",
+     {},
+     "two"
+    ],
+    [
+     "li",
+     {},
+     "ten"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "nested lists",
+  "src": "- a\n  - a1\n  - a2\n    1. deep\n- b\n\tl- tab\n\t- tabbed child",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "a",
+     [
+      "ul",
+      {},
+      [
+       "li",
+       {},
+       "a1"
+      ],
+      [
+       "li",
+       {},
+       "a2",
+       [
+        "ol",
+        {},
+        [
+         "li",
+         {},
+         "deep"
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     "li",
+     {},
+     "b l- tab",
+     [
+      "ul",
+      {},
+      [
+       "li",
+       {},
+       "tabbed child"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "list then dedent to a shallower level than the first",
+  "src": "  - indented first\n- outer\n    - deeper",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "indented first"
+    ]
+   ],
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "outer",
+     [
+      "ul",
+      {},
+      [
+       "li",
+       {},
+       "deeper"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "list continuation lines",
+  "src": "- item one\n  continues here\n- item two\nnot a continuation",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "item one continues here"
+    ],
+    [
+     "li",
+     {},
+     "item two"
+    ]
+   ],
+   [
+    "p",
+    {},
+    "not a continuation"
+   ]
+  ]
+ },
+ {
+  "name": "list item that starts nested with no parent item",
+  "src": "  - lone",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "lone"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "ordered list nested in unordered",
+  "src": "- x\n   1. y\n   2. z\n- w",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "x",
+     [
+      "ol",
+      {},
+      [
+       "li",
+       {},
+       "y"
+      ],
+      [
+       "li",
+       {},
+       "z"
+      ]
+     ]
+    ],
+    [
+     "li",
+     {},
+     "w"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "block quote",
+  "src": "> quoted **text**\n> second line\n>\n> # heading in quote\nafter",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "blockquote",
+    {},
+    [
+     "div",
+     {
+      "class": "md"
+     },
+     [
+      "p",
+      {},
+      "quoted ",
+      [
+       "strong",
+       {},
+       "text"
+      ],
+      [
+       "br",
+       {}
+      ],
+      "second line"
+     ],
+     [
+      "h3",
+      {},
+      "heading in quote"
+     ]
+    ]
+   ],
+   [
+    "p",
+    {},
+    "after"
+   ]
+  ]
+ },
+ {
+  "name": "nested quote",
+  "src": "> > deep\n> shallow",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "blockquote",
+    {},
+    [
+     "div",
+     {
+      "class": "md"
+     },
+     [
+      "blockquote",
+      {},
+      [
+       "div",
+       {
+        "class": "md"
+       },
+       [
+        "p",
+        {},
+        "deep"
+       ]
+      ]
+     ],
+     [
+      "p",
+      {},
+      "shallow"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "horizontal rules",
+  "src": "a\n\n---\n\n***\n___\n- - -\nb",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "a"
+   ],
+   [
+    "hr",
+    {}
+   ],
+   [
+    "hr",
+    {}
+   ],
+   [
+    "hr",
+    {}
+   ],
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "- -"
+    ]
+   ],
+   [
+    "p",
+    {},
+    "b"
+   ]
+  ]
+ },
+ {
+  "name": "table",
+  "src": "| a | **b** |\n|---|:--:|\n| 1 | `2` |\n| 3 | 4 |\n\nafter",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "div",
+    {
+     "class": "tablewrap"
+    },
+    [
+     "table",
+     {},
+     [
+      "thead",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "th",
+        {},
+        "a"
+       ],
+       [
+        "th",
+        {},
+        [
+         "strong",
+         {},
+         "b"
+        ]
+       ]
+      ]
+     ],
+     [
+      "tbody",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "td",
+        {},
+        "1"
+       ],
+       [
+        "td",
+        {},
+        [
+         "code",
+         {
+          "class": "ic"
+         },
+         "2"
+        ]
+       ]
+      ],
+      [
+       "tr",
+       {},
+       [
+        "td",
+        {},
+        "3"
+       ],
+       [
+        "td",
+        {},
+        "4"
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "p",
+    {},
+    "after"
+   ]
+  ]
+ },
+ {
+  "name": "table without outer pipes",
+  "src": "a | b\n--- | ---\n1 | 2",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "div",
+    {
+     "class": "tablewrap"
+    },
+    [
+     "table",
+     {},
+     [
+      "thead",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "th",
+        {},
+        "a"
+       ],
+       [
+        "th",
+        {},
+        "b"
+       ]
+      ]
+     ],
+     [
+      "tbody",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "td",
+        {},
+        "1"
+       ],
+       [
+        "td",
+        {},
+        "2"
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "table needs a separator line",
+  "src": "| a | b |\n| 1 | 2 |",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "| a | b |",
+    [
+     "br",
+     {}
+    ],
+    "| 1 | 2 |"
+   ]
+  ]
+ },
+ {
+  "name": "table rows end at a line without a pipe",
+  "src": "| h |\n| -- |\n| r |\nplain",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "div",
+    {
+     "class": "tablewrap"
+    },
+    [
+     "table",
+     {},
+     [
+      "thead",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "th",
+        {},
+        "h"
+       ]
+      ]
+     ],
+     [
+      "tbody",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "td",
+        {},
+        "r"
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "p",
+    {},
+    "plain"
+   ]
+  ]
+ },
+ {
+  "name": "paragraph stops before a block",
+  "src": "text\n# heading\nmore\n- list\nend\n```\ncode\n```",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "text"
+   ],
+   [
+    "h3",
+    {},
+    "heading"
+   ],
+   [
+    "p",
+    {},
+    "more"
+   ],
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "list"
+    ]
+   ],
+   [
+    "p",
+    {},
+    "end"
+   ],
+   [
+    "div",
+    {
+     "class": "code"
+    },
+    [
+     "div",
+     {
+      "class": "codehead"
+     },
+     [
+      "span",
+      {},
+      "text"
+     ],
+     [
+      "button",
+      {
+       "class": "copy"
+      },
+      "Copy"
+     ]
+    ],
+    [
+     "pre",
+     {},
+     [
+      "code",
+      {},
+      "code"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "paragraph stops before a table",
+  "src": "intro\n| a | b |\n|---|---|\n| 1 | 2 |",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "intro"
+   ],
+   [
+    "div",
+    {
+     "class": "tablewrap"
+    },
+    [
+     "table",
+     {},
+     [
+      "thead",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "th",
+        {},
+        "a"
+       ],
+       [
+        "th",
+        {},
+        "b"
+       ]
+      ]
+     ],
+     [
+      "tbody",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "td",
+        {},
+        "1"
+       ],
+       [
+        "td",
+        {},
+        "2"
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "windows line endings",
+  "src": "a\r\nb\r\n\r\n- c\r\n",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "a",
+    [
+     "br",
+     {}
+    ],
+    "b"
+   ],
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "c"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "only spaces",
+  "src": "   \n\t\n",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   }
+  ]
+ },
+ {
+  "name": "empty",
+  "src": "",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   }
+  ]
+ },
+ {
+  "name": "unicode and emoji",
+  "src": "Ñandú 😀 **café** `naïve`",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "Ñandú 😀 ",
+    [
+     "strong",
+     {},
+     "café"
+    ],
+    " ",
+    [
+     "code",
+     {
+      "class": "ic"
+     },
+     "naïve"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "unclosed markers stay as text",
+  "src": "**open and *open and `open and ~~open and [x](",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "*",
+    [
+     "em",
+     {},
+     "open and "
+    ],
+    "open and `open and ~~open and [x]("
+   ]
+  ]
+ },
+ {
+  "name": "a greater-than without space",
+  "src": ">tight",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "blockquote",
+    {},
+    [
+     "div",
+     {
+      "class": "md"
+     },
+     [
+      "p",
+      {},
+      "tight"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "heading text with inline",
+  "src": "## The `run()` **step**",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "h4",
+    {},
+    "The ",
+    [
+     "code",
+     {
+      "class": "ic"
+     },
+     "run()"
+    ],
+    " ",
+    [
+     "strong",
+     {},
+     "step"
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "list item with inline",
+  "src": "- **bold** item with [link](https://a.b)",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     [
+      "strong",
+      {},
+      "bold"
+     ],
+     " item with ",
+     [
+      "a",
+      {
+       "href": "https://a.b",
+       "target": "_blank",
+       "rel": "noopener noreferrer nofollow"
+      },
+      "link"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "bare addresses become links",
+  "src": "Open http://localhost:5173/ or https://example.com/a?b=1&c=2#x now",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "Open ",
+    [
+     "a",
+     {
+      "href": "http://localhost:5173/",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "http://localhost:5173/"
+    ],
+    " or ",
+    [
+     "a",
+     {
+      "href": "https://example.com/a?b=1&c=2#x",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "https://example.com/a?b=1&c=2#x"
+    ],
+    " now"
+   ]
+  ]
+ },
+ {
+  "name": "trailing punctuation is not part of the address",
+  "src": "See https://example.com. Or (https://example.com/wiki/A_(b)) and https://x.io/path, then \"https://q.org\".",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "See ",
+    [
+     "a",
+     {
+      "href": "https://example.com",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "https://example.com"
+    ],
+    ". Or (",
+    [
+     "a",
+     {
+      "href": "https://example.com/wiki/A_(b)",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "https://example.com/wiki/A_(b)"
+    ],
+    ") and ",
+    [
+     "a",
+     {
+      "href": "https://x.io/path",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "https://x.io/path"
+    ],
+    ", then \"",
+    [
+     "a",
+     {
+      "href": "https://q.org",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     "https://q.org"
+    ],
+    "\"."
+   ]
+  ]
+ },
+ {
+  "name": "a code span that is just an address",
+  "src": "Server at `http://localhost:3000` and `curl http://x.io` and `https://` alone",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "Server at ",
+    [
+     "a",
+     {
+      "href": "http://localhost:3000",
+      "target": "_blank",
+      "rel": "noopener noreferrer nofollow"
+     },
+     [
+      "code",
+      {
+       "class": "ic"
+      },
+      "http://localhost:3000"
+     ]
+    ],
+    " and ",
+    [
+     "code",
+     {
+      "class": "ic"
+     },
+     "curl http://x.io"
+    ],
+    " and ",
+    [
+     "code",
+     {
+      "class": "ic"
+     },
+     "https://"
+    ],
+    " alone"
+   ]
+  ]
+ },
+ {
+  "name": "addresses inside styles and lists",
+  "src": "- **docs: https://docs.example.com/start**\n- *see http://a.b/c*\n- [named](https://n.example) vs https://n.example",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     [
+      "strong",
+      {},
+      "docs: ",
+      [
+       "a",
+       {
+        "href": "https://docs.example.com/start",
+        "target": "_blank",
+        "rel": "noopener noreferrer nofollow"
+       },
+       "https://docs.example.com/start"
+      ]
+     ]
+    ],
+    [
+     "li",
+     {},
+     [
+      "em",
+      {},
+      "see ",
+      [
+       "a",
+       {
+        "href": "http://a.b/c",
+        "target": "_blank",
+        "rel": "noopener noreferrer nofollow"
+       },
+       "http://a.b/c"
+      ]
+     ]
+    ],
+    [
+     "li",
+     {},
+     [
+      "a",
+      {
+       "href": "https://n.example",
+       "target": "_blank",
+       "rel": "noopener noreferrer nofollow"
+      },
+      "named"
+     ],
+     " vs ",
+     [
+      "a",
+      {
+       "href": "https://n.example",
+       "target": "_blank",
+       "rel": "noopener noreferrer nofollow"
+      },
+      "https://n.example"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "not addresses",
+  "src": "ftp://x.y and http:// and https://?q and javascript:alert(1) and HTTP://UPPER.example",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "ftp://x.y and http:// and https://?q and javascript:alert(1) and HTTP://UPPER.example"
+   ]
+  ]
+ },
+ {
+  "name": "claude style answer",
+  "src": "I'll check the files.\n\n## Summary\n\n- Updated `server.swift`:\n  - added a route\n- Ran the tests\n\n```bash\nnpm test\n```\n\n| File | Change |\n|------|--------|\n| a.swift | +3 |\n\n> Note: nothing else changed.",
+  "tree": [
+   "div",
+   {
+    "class": "md"
+   },
+   [
+    "p",
+    {},
+    "I'll check the files."
+   ],
+   [
+    "h4",
+    {},
+    "Summary"
+   ],
+   [
+    "ul",
+    {},
+    [
+     "li",
+     {},
+     "Updated ",
+     [
+      "code",
+      {
+       "class": "ic"
+      },
+      "server.swift"
+     ],
+     ":",
+     [
+      "ul",
+      {},
+      [
+       "li",
+       {},
+       "added a route"
+      ]
+     ]
+    ],
+    [
+     "li",
+     {},
+     "Ran the tests"
+    ]
+   ],
+   [
+    "div",
+    {
+     "class": "code"
+    },
+    [
+     "div",
+     {
+      "class": "codehead"
+     },
+     [
+      "span",
+      {},
+      "bash"
+     ],
+     [
+      "button",
+      {
+       "class": "copy"
+      },
+      "Copy"
+     ]
+    ],
+    [
+     "pre",
+     {},
+     [
+      "code",
+      {},
+      "npm test"
+     ]
+    ]
+   ],
+   [
+    "div",
+    {
+     "class": "tablewrap"
+    },
+    [
+     "table",
+     {},
+     [
+      "thead",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "th",
+        {},
+        "File"
+       ],
+       [
+        "th",
+        {},
+        "Change"
+       ]
+      ]
+     ],
+     [
+      "tbody",
+      {},
+      [
+       "tr",
+       {},
+       [
+        "td",
+        {},
+        "a.swift"
+       ],
+       [
+        "td",
+        {},
+        "+3"
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "blockquote",
+    {},
+    [
+     "div",
+     {
+      "class": "md"
+     },
+     [
+      "p",
+      {},
+      "Note: nothing else changed."
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "name": "command output with a dev server address",
+  "src": "  VITE v5.0.0  ready in 300 ms\n\n  ➜  Local:   http://localhost:5173/\n  ➜  Network: use --host to expose\n",
+  "plain": true,
+  "tree": [
+   "pre",
+   {},
+   "  VITE v5.0.0  ready in 300 ms\n\n  ➜  Local:   ",
+   [
+    "a",
+    {
+     "href": "http://localhost:5173/",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "http://localhost:5173/"
+   ],
+   "\n  ➜  Network: use --host to expose\n"
+  ]
+ },
+ {
+  "name": "several addresses, punctuation around them",
+  "src": "Deployed to https://app.example.com, docs at <https://docs.example.com>; (see http://x.y/z).",
+  "plain": true,
+  "tree": [
+   "pre",
+   {},
+   "Deployed to ",
+   [
+    "a",
+    {
+     "href": "https://app.example.com",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://app.example.com"
+   ],
+   ", docs at <",
+   [
+    "a",
+    {
+     "href": "https://docs.example.com",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://docs.example.com"
+   ],
+   ">; (see ",
+   [
+    "a",
+    {
+     "href": "http://x.y/z",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "http://x.y/z"
+   ],
+   ")."
+  ]
+ },
+ {
+  "name": "every trailing character that is not part of an address",
+  "src": "https://a.io/x; https://b.io/y! https://c.io/z? [https://d.io/w] {https://e.io/v} https://f.io/u: *https://g.io/t* _https://h.io/s_ https://i.io/r,",
+  "plain": true,
+  "tree": [
+   "pre",
+   {},
+   [
+    "a",
+    {
+     "href": "https://a.io/x",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://a.io/x"
+   ],
+   "; ",
+   [
+    "a",
+    {
+     "href": "https://b.io/y",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://b.io/y"
+   ],
+   "! ",
+   [
+    "a",
+    {
+     "href": "https://c.io/z",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://c.io/z"
+   ],
+   "? [",
+   [
+    "a",
+    {
+     "href": "https://d.io/w",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://d.io/w"
+   ],
+   "] {",
+   [
+    "a",
+    {
+     "href": "https://e.io/v",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://e.io/v"
+   ],
+   "} ",
+   [
+    "a",
+    {
+     "href": "https://f.io/u",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://f.io/u"
+   ],
+   ": *",
+   [
+    "a",
+    {
+     "href": "https://g.io/t",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://g.io/t"
+   ],
+   "* _",
+   [
+    "a",
+    {
+     "href": "https://h.io/s",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://h.io/s"
+   ],
+   "_ ",
+   [
+    "a",
+    {
+     "href": "https://i.io/r",
+     "target": "_blank",
+     "rel": "noopener noreferrer nofollow"
+    },
+    "https://i.io/r"
+   ],
+   ","
+  ]
+ },
+ {
+  "name": "no address",
+  "src": "nothing to link here: http:// alone",
+  "plain": true,
+  "tree": [
+   "pre",
+   {},
+   "nothing to link here: http:// alone"
+  ]
+ }
+]

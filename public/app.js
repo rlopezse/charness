@@ -1,6 +1,6 @@
 // Charness UI — plain ES modules, no framework, no build step, no network except this origin.
 import { apply, toolSummary } from './reduce.js';
-import { renderMarkdown } from './md.js';
+import { renderMarkdown, linkify } from './md.js';
 
 // ------------------------------------------------------------------ tiny helpers
 const $ = (sel) => document.querySelector(sel);
@@ -64,6 +64,7 @@ const S = {
 const MODE_HINT = {
   ask: 'Claude asks before editing files or running commands.',
   edits: 'File edits are applied automatically; commands still ask.',
+  commands: 'File edits and shell commands run without asking; other tools still ask.',
   plan: 'Read-only: Claude explores and proposes a plan, changes nothing.',
   full: 'No prompts at all. Only use in a throwaway folder or VM.',
 };
@@ -291,7 +292,7 @@ function msgNode(m) {
   if (m.role === 'user') {
     return h('div', { class: 'msg user' },
       h('div', { class: 'bubble' },
-        m.text || null,
+        m.text ? linkify(m.text, h('span')) : null,
         m.files?.length ? h('div', { class: 'files' }, m.files.map((f) => fileChip(f))) : null));
   }
   if (m.role === 'system') return h('div', { class: 'msg sys' }, m.text);
@@ -330,7 +331,7 @@ function toolCard(b) {
     h('summary', null, h('span', { class: 'tname' }, b.name), h('span', { class: 'tsum' }, summarize(b)), h('span', { class: 'tstat' }, b.status === 'running' ? 'running' : b.status)),
     h('div', { class: 'tbody' },
       inputView(b.name, b.input),
-      b.output ? [h('div', { class: 'label' }, 'Output'), h('pre', null, b.output.length > 4000 ? `${b.output.slice(0, 4000)}\n…` : b.output)] : null));
+      b.output ? [h('div', { class: 'label' }, 'Output'), linkify(b.output.length > 4000 ? `${b.output.slice(0, 4000)}\n…` : b.output, h('pre'))] : null));
   d.addEventListener('toggle', () => { d.open ? S.open.add(b.id) : S.open.delete(b.id); });
   return d;
 }

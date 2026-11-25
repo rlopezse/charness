@@ -578,6 +578,256 @@ do {
           writing != nil && writing!.1 < 1.5 && deltas < 20 && writing!.0.arrayValue?.last == stopped)
 }
 
+// MARK: - native screens' client (SwiftUI)
+
+print("native client talks to a real server (mock) like the web UI does")
+do {
+    let root = fixtures.deletingLastPathComponent().deletingLastPathComponent()
+    var cfg = ServerConfig(root: root, environment: [:])
+    cfg.home = tempDir(); cfg.port = 0; cfg.mock = true; cfg.guardOn = false
+    let server = try CharnessServer(config: cfg)
+    try server.start()
+    defer { server.stop() }
+
+    let bad = APIClient(port: server.port)
+    check("a wrong access token gets no session", throwsError { try bad.login(token: "nope") }
+          && throwsError { try bad.request("GET", "/api/state") })
+    let api = APIClient(port: server.port)
+    try api.login(token: server.token)
+
+    final class Box: @unchecked Sendable {
+        let lock = NSLock()
+        var st = ClientState()
+        var connects = 0
+        var seen: [String] = []
+        func with<T>(_ f: (Box) -> T) -> T { lock.lock(); defer { lock.unlock() }; return f(self) }
+    }
+    let box = Box()
+    func withState<T>(_ f: (inout ClientState) -> T) -> T { box.with { f(&$0.st) } }
+    func waitFor(_ secs: Double, _ cond: (ClientState) -> Bool) -> Bool {
+        let end = Date().addingTimeInterval(secs)
+        while Date() < end { if withState({ cond($0) }) { return true }; usleep(20_000) }
+        return false
+    }
+    let stream = EventStream(client: api, onEvent: { ev in
+        let follow = box.with { b -> ClientState.FollowUp in
+            b.seen.append(ev.objectValue?["type"]?.stringValue ?? "?")
+            return b.st.handle(ev)
+        }
+        if follow == .refreshState, let v = try? api.request("GET", "/api/state") { box.with { $0.st.applyState(v) } }
+    }, onConnection: { up in box.with { b in b.st.connected = up; if up { b.connects += 1 } } })
+    stream.start()
+    check("the live-event feed connects with the session cookie", waitFor(5) { $0.connected })
+
+    withState { $0.applyState((try? api.request("GET", "/api/state")) ?? .null) }
+    check("state: mock flag, models and modes as the web UI gets them",
+          withState { $0.mock && $0.models.first?.id == "" && $0.modes.map(\.id) == ["ask", "edits", "commands", "plan"] })
+
+    let made = tempDir()
+    try fm.createDirectory(at: made, withIntermediateDirectories: true)
+    let folder = CharnessServer.realPath(made.path) ?? made.path
+    let p = try api.request("POST", "/api/projects", ["path": .string(folder)])
+    let pid = p.objectValue?["id"]?.stringValue ?? ""
+    let t = try api.request("POST", "/api/threads", ["projectId": .string(pid)])
+    let tid = t.objectValue?["id"]?.stringValue ?? ""
+    check("a 'state' event makes the client refresh: the new project and thread show up",
+          waitFor(5) { $0.projects.contains { $0.id == pid } && $0.threads(of: pid).map(\.id) == [tid] })
+    withState { $0.applyThread((try? api.request("GET", "/api/threads/\(tid)")) ?? .null) }
+    check("opening a thread", withState { $0.current?.thread.id == tid && $0.messages.isEmpty })
+
+    let caught: String? = { do { try api.request("PATCH", "/api/threads/nope", ["title": "x"]); return nil }
+                            catch let e as APIError { return "\(e.status) \(e.message)" } catch { return "\(error)" } }()
+    check("a failed call carries the server's error text", caught?.hasPrefix("404 ") == true && caught != "404 Not Found")
+
+    let name = "foto ñ \u{1F600}.png"
+    let up = try api.upload(threadId: tid, name: name, bytes: [137, 80, 78, 71])
+    check("upload keeps a non-ASCII file name", up.objectValue?["name"]?.stringValue == name && up.objectValue?["size"]?.doubleValue == 4)
+
+    try api.request("POST", "/api/threads/\(tid)/send", ["text": "hello there", "files": [.string(name)]])
+    check("while Claude works: busy, live activity, and the approval card for this thread",
+          waitFor(10) { $0.busy.contains(tid) && $0.activity[tid] != nil && $0.currentPerms.count == 1 && $0.needsApproval(tid) })
+    let perm = withState { $0.currentPerms.first }
+    check("the approval is for a command, with its input", perm?.tool == "Bash" && perm?.input.objectValue?["command"] != nil)
+    try api.request("POST", "/api/permissions/\(perm?.id ?? "")", ["allow": true])
+    check("after approving: the card goes away and the turn finishes",
+          waitFor(15) { !$0.busy.contains(tid) && $0.perms.isEmpty && $0.activity[tid] == nil })
+    let saved = try api.request("GET", "/api/threads/\(tid)").objectValue?["messages"]?.arrayValue ?? []
+    let live = withState { $0.current?.messages ?? [] }
+    check("messages folded from live events equal what the server saved", !saved.isEmpty && live == saved)
+    let msgs = withState { $0.messages }
+    var shapes: [String] = []
+    for m in msgs {
+        switch m {
+        case .user(let text, let files): shapes.append("user:\(text):\(files.map(\.name).joined()):\(files.first?.size ?? 0)")
+        case .assistant(let blocks, let done):
+            let tools = blocks.compactMap { b -> String? in if case .tool(let c) = b { return "\(c.name)/\(c.status)" }; return nil }
+            let hasText = blocks.contains { if case .text(let x) = $0 { return !x.isEmpty }; return false }
+            shapes.append("assistant:\(hasText):\(tools.joined(separator: ",")):\(done != nil)")
+        case .system(let text): shapes.append("system:\(text)")
+        }
+    }
+    check("typed messages: the user's text and file, then an answer with text, tool cards and a done line",
+          shapes.first == "user:hello there:\(name):4" && shapes.count == 2
+          && shapes[1].hasPrefix("assistant:true:Bash/ok") && shapes[1].hasSuffix(":true"))
+    check("the event types the client saw", box.with { b in ["state", "busy", "activity", "perm", "perm_done", "thread"].allSatisfy(b.seen.contains) })
+
+    try api.request("PATCH", "/api/threads/\(tid)", ["title": "Renamed"])
+    check("a rename reaches the open thread through the feed", waitFor(5) { $0.current?.thread.title == "Renamed" })
+    try api.request("DELETE", "/api/threads/\(tid)")
+    check("deleting the open thread closes it", waitFor(5) { $0.current == nil && $0.threads.isEmpty })
+
+    stream.stop()
+    let after = box.with { $0.connects }
+    usleep(1_500_000)
+    check("a stopped feed stays stopped", box.with { $0.connects } == after)
+} catch {
+    check("the native client's run against the server (threw: \(error))", false)
+}
+
+print("native client: what the screens show")
+do {
+    var s = ClientState()
+    let e: (String, Double, Bool, Double, String?) -> JSONValue = { h, p, a, ts, note in
+        var o: JSONObject = ["host": .string(h), "port": .number(p), "allowed": .bool(a), "ts": .number(ts)]
+        if let n = note { o["note"] = .string(n) }
+        return .object(o)
+    }
+    for ev in [e("api.anthropic.com", 443, true, 1, nil), e("evil.example", 443, false, 2, nil), e("api.anthropic.com", 443, true, 3, nil),
+               e("pypi.org", 8443, false, 4, nil), e("plain.example", 80, false, 5, "plain http"), e("evil.example", 443, true, 0.5, nil)] {
+        s.handle(["type": "net", "entry": ev])
+    }
+    let rows = s.networkRows
+    check("network rows: grouped by host, port and outcome, newest first, counted",
+          rows.map { "\($0.host):\($0.count):\($0.allowed)" } == ["plain.example:1:false", "pypi.org:1:false", "api.anthropic.com:2:true",
+                                                                 "evil.example:1:false", "evil.example:1:true"]
+          && s.blockedCount == 3 && rows[0].note == "plain http")
+    check("'Allow' adds the host for 443, host:port otherwise", rows[1].allowEntry == "pypi.org:8443" && rows[3].allowEntry == "evil.example")
+    s.handle(["type": "allow", "allow": ["api.anthropic.com", "pypi.org:8443"]])
+    check("an 'allow' event updates the allow-list", s.allow == ["api.anthropic.com", "pypi.org:8443"])
+    for i in 0..<510 { s.handle(["type": "net", "entry": e("h\(i)", 443, false, Double(10 + i), nil)]) }
+    check("the network log keeps the last 500, the panel shows 100", s.netLog.count == 500 && s.networkRows.count == 100 && s.networkRows.first?.host == "h509")
+    let permEv: JSONValue = ["type": "perm", "perm": ["id": "p1", "threadId": "t1", "tool": "Bash", "input": ["command": "ls"], "defaultToNo": true]]
+    s.handle(permEv); s.handle(permEv)
+    check("an approval request shows once, even if sent twice", s.perms.count == 1 && s.needsApproval("t1") && s.perms[0].defaultToNo && !s.needsApproval("t2"))
+    s.handle(["type": "perm_done", "id": "p1"])
+    check("'perm_done' removes the approval card", s.perms.isEmpty && !s.needsApproval("t1"))
+    s.handle(["type": "busy", "threadId": "t1", "busy": true])
+    s.handle(["type": "activity", "threadId": "t1", "activity": ["now": "Running a command", "since": 5, "steps": [["id": "a", "text": "Bash ls", "sub": false, "status": "ok"]]]])
+    check("busy + activity", s.busy == ["t1"] && s.activity["t1"]?.steps.first?.status == "ok" && s.activity["t1"]?.now == "Running a command")
+    s.handle(["type": "busy", "threadId": "t1", "busy": false])
+    check("not busy any more: the activity goes", s.busy.isEmpty && s.activity["t1"] == nil)
+    check("a 'state' event asks for a refresh", s.handle(["type": "state"]) == .refreshState && s.handle(["type": "nope"]) == .none)
+
+    check("file sizes like the web UI", ClientText.fileSize(1023) == "1023 B" && ClientText.fileSize(1536) == "1.5 KB" && ClientText.fileSize(3 * 1024 * 1024) == "3.0 MB")
+    check("file icons", ClientText.fileIcon("A.JPEG") == "🖼" && ClientText.fileIcon("x.pdf") == "📕" && ClientText.fileIcon("notes.txt") == "📄")
+    check("elapsed time", ClientText.elapsed(since: 0, now: 12_900) == "12s" && ClientText.elapsed(since: 0, now: 184_000) == "3m 4s" && ClientText.elapsed(since: 10, now: 0) == "0s")
+    check("the done line", ClientText.doneLine(cost: 0.0042, turns: 2, ms: 1234) == "$0.0042 · 2 turns · 1.2s"
+          && ClientText.doneLine(cost: 0, turns: 1, ms: nil) == "1 turn")
+    check("first lines", ClientText.firstLines("a\nb\nc", 2) == "a\nb\n… (1 more lines)" && ClientText.firstLines("a\nb", 2) == "a\nb")
+    check("mode hints", ClientText.modeHint("plan").hasPrefix("Read-only") && ClientText.modeHint("x") == "")
+}
+
+// MARK: - Markdown (native screens)
+
+print("Markdown gives the same structure as public/md.js")
+do {
+    /// [tag, {attrs}, ...kids] as make-markdown-fixtures.mjs writes md.js's DOM (adjacent text merged, empty text dropped)
+    func el(_ tag: String, _ attrs: JSONObject = JSONObject(), _ kids: [JSONValue]) -> JSONValue {
+        var out: [JSONValue] = [.string(tag), .object(attrs)]
+        for k in kids {
+            if case .string(let s) = k {
+                if s.isEmpty { continue }
+                if out.count > 2, case .string(let prev) = out[out.count - 1] { out[out.count - 1] = .string(prev + s); continue }
+            }
+            out.append(k)
+        }
+        return .array(out)
+    }
+    func inl(_ xs: [MDInline]) -> [JSONValue] {
+        xs.map { x -> JSONValue in
+            switch x {
+            case .text(let s): return .string(s)
+            case .code(let s): return el("code", ["class": "ic"], [.string(s)])
+            case .strong(let k): return el("strong", JSONObject(), inl(k))
+            case .em(let k): return el("em", JSONObject(), inl(k))
+            case .del(let k): return el("del", JSONObject(), inl(k))
+            case .link(let u, let k): return el("a", ["href": .string(u), "target": "_blank", "rel": "noopener noreferrer nofollow"], inl(k))
+            }
+        }
+    }
+    func list(_ l: MDList) -> JSONValue {
+        el(l.ordered ? "ol" : "ul", JSONObject(), l.items.map { el("li", JSONObject(), inl($0.text) + $0.lists.map(list)) })
+    }
+    func blocks(_ bs: [MDBlock]) -> JSONValue {
+        el("div", ["class": "md"], bs.map { b -> JSONValue in
+            switch b {
+            case .heading(let level, let t): return el("h\(level)", JSONObject(), inl(t))
+            case .paragraph(let lines):
+                var kids: [JSONValue] = []
+                for (k, l) in lines.enumerated() { if k > 0 { kids.append(el("br", JSONObject(), [])) }; kids += inl(l) }
+                return el("p", JSONObject(), kids)
+            case .code(let lang, let text):
+                return el("div", ["class": "code"], [
+                    el("div", ["class": "codehead"], [el("span", JSONObject(), [.string(lang.isEmpty ? "text" : lang)]), el("button", ["class": "copy"], ["Copy"])]),
+                    el("pre", JSONObject(), [el("code", JSONObject(), [.string(text)])])])
+            case .quote(let inner): return el("blockquote", JSONObject(), [blocks(inner)])
+            case .list(let l): return list(l)
+            case .table(let head, let rows):
+                return el("div", ["class": "tablewrap"], [el("table", JSONObject(), [
+                    el("thead", JSONObject(), [el("tr", JSONObject(), head.map { el("th", JSONObject(), inl($0)) })]),
+                    el("tbody", JSONObject(), rows.map { r in el("tr", JSONObject(), r.map { el("td", JSONObject(), inl($0)) }) })])])
+            case .rule: return el("hr", JSONObject(), [])
+            }
+        })
+    }
+    let samples = (try JSONValue.parse(Array(Data(contentsOf: fixtures.appendingPathComponent("markdown.json"))))).arrayValue ?? []
+    var bad: [String] = []
+    for sm in samples {
+        let o = sm.objectValue ?? JSONObject()
+        let src = o["src"]?.stringValue ?? ""
+        let got = o["plain"] == true ? el("pre", JSONObject(), inl(Markdown.linkify(src))) : blocks(Markdown.parse(src))
+        if got != o["tree"] { bad.append(o["name"]?.stringValue ?? "?"); print("      \(o["name"]!.stringValue!):\n        md.js \(o["tree"]!.jsonString())\n        Swift \(got.jsonString())") }
+    }
+    check("all \(samples.count) samples match md.js\(bad.isEmpty ? "" : " (not: \(bad.joined(separator: ", ")))")", samples.count >= 30 && bad.isEmpty)
+} catch {
+    check("Markdown samples (threw: \(error))", false)
+}
+
+// MARK: - login shell PATH (Charness.app)
+
+print("the app takes PATH from the login shell")
+do {
+    check("PATH is read between the markers, whatever start-up files print",
+          ShellPath.parse("Welcome!\n__CHARNESS_PATH_START__/opt/homebrew/bin:/usr/bin__CHARNESS_PATH_END__\nbye") == "/opt/homebrew/bin:/usr/bin"
+          && ShellPath.parse("no markers") == nil && ShellPath.parse("__CHARNESS_PATH_START____CHARNESS_PATH_END__") == nil)
+    check("merged: the shell's entries first, then missing current ones, no duplicates or empty entries",
+          ShellPath.merge(shell: "/opt/homebrew/bin:/usr/bin::/bin", current: "/usr/bin:/bin:/usr/sbin:/sbin")
+            == "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          && ShellPath.merge(shell: nil, current: "/usr/bin") == "/usr/bin")
+    let dir = tempDir()
+    try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    func script(_ name: String, _ body: String) throws -> String {
+        let path = dir.appendingPathComponent(name).path
+        try ("#!/bin/sh\n" + body + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+        _ = chmod(path, 0o755)
+        return path
+    }
+    // a "shell" that chats on start-up, then runs the -c command it was given (as zsh -i -l -c would)
+    let chatty = try script("chatty", "echo 'Last login: today'\n[ \"$1 $2 $3\" = '-i -l -c' ] || exit 9\nPATH=/fake/bin:/usr/bin\neval \"$4\"\necho done")
+    check("the -c command prints the shell's PATH (with start-up noise around it)", ShellPath.fromLoginShell(chatty) == "/fake/bin:/usr/bin")
+    let t0 = Date()
+    let hang = try script("hang", "sleep 30")
+    check("a shell that hangs is given up on in time", ShellPath.fromLoginShell(hang, timeout: 1) == nil && Date().timeIntervalSince(t0) < 3)
+    check("a failing shell gives nothing", ShellPath.fromLoginShell(try script("fail", "echo __CHARNESS_PATH_START__/x__CHARNESS_PATH_END__; exit 1")) == nil)
+    check("only an absolute path to a program is run", ShellPath.fromLoginShell("sh") == nil && ShellPath.fromLoginShell(dir.path + "/missing") == nil)
+    if fm.isExecutableFile(atPath: "/bin/bash") {
+        let real = ShellPath.fromLoginShell("/bin/bash", environment: ["HOME": dir.path, "PATH": "/usr/bin:/bin"])
+        check("a real login shell answers", real?.split(separator: ":").contains { $0 == "/usr/bin" || $0 == "/bin" } == true)
+    }
+} catch {
+    check("login shell PATH (threw: \(error))", false)
+}
+
 for t in temps { try? fm.removeItem(at: t) }
 print(failed == 0 ? "\nall \(passed) checks passed" : "\n\(failed) of \(passed + failed) checks FAILED")
 exit(failed == 0 ? 0 : 1)

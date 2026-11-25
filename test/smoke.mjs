@@ -125,6 +125,20 @@ try {
   await call('PATCH', `/api/threads/${t.id}`, { mode: 'plan' });
   assert.equal((await call('PATCH', `/api/threads/${t.id}`, { mode: 'full' })).status, 400); ok('"full access" mode is refused unless explicitly enabled');
 
+  // auto-accept edits & commands: the server approves commands itself; other tools still ask
+  await call('PATCH', `/api/threads/${t.id}`, { mode: 'commands' });
+  const permsBefore = frames.filter((f) => f.type === 'perm').length;
+  const before = (await call('GET', `/api/threads/${t.id}`)).json.messages.length;
+  assert.equal((await call('POST', `/api/threads/${t.id}/send`, { text: 'hello there' })).status, 202);
+  const doneCmd = await wait(async () => { const r = (await call('GET', `/api/threads/${t.id}`)).json; return !r.thread.busy && r.messages.length >= before + 2 ? r : null; });
+  assert.equal(doneCmd.messages.at(-1).blocks.find((b) => b.type === 'tool').status, 'ok');
+  assert.equal(frames.filter((f) => f.type === 'perm').length, permsBefore); ok('"auto-accept edits & commands": a command runs without asking');
+  assert.equal((await call('POST', `/api/threads/${t.id}/send`, { text: 'edit something' })).status, 202);
+  const permCmd = await wait(async () => (await call('GET', '/api/state')).json.perms[0]);
+  assert.equal(permCmd.tool, 'Edit'); ok('… while other tools still ask');
+  await call('POST', `/api/permissions/${permCmd.id}`, { allow: false });
+  await wait(async () => !(await call('GET', `/api/threads/${t.id}`)).json.thread.busy);
+
   // stop
   await call('PATCH', `/api/threads/${t.id}`, { mode: 'ask' });
   await call('POST', `/api/threads/${t.id}/send`, { text: 'stop me' });

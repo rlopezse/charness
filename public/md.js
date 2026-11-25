@@ -1,6 +1,8 @@
 // A small, safe markdown renderer. It builds DOM nodes with textContent only — never innerHTML —
 // so model output can't inject markup or scripts. Supports: headings, paragraphs, lists (nested),
 // block quotes, fenced code, inline code/bold/italic/links, simple tables, horizontal rules.
+// Bare http(s) addresses become links too (also a `code span` that is just an address); linkify() does the
+// same for plain text such as command output. Links open in the default browser, never in this window.
 
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -9,24 +11,61 @@ const el = (tag, cls, text) => {
   return e;
 };
 
-const INLINE = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\s][^*\n]*\*|~~[^~\n]+~~|\[[^\]\n]+\]\([^)\s]+\))/g;
+const INLINE = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\s][^*\n]*\*|~~[^~\n]+~~|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s<>"'`]+)/g;
+const BARE_URL = /https?:\/\/[^\s<>"'`]+/g;
+
+// A bare address ends before trailing punctuation: "see http://x.com." or "(http://x.com)".
+export function trimURL(u) {
+  for (;;) {
+    const c = u[u.length - 1];
+    if ('.,;:!?\'"*_]}>'.includes(c)) u = u.slice(0, -1);
+    else if (c === ')' && u.split('(').length < u.split(')').length) u = u.slice(0, -1);
+    else return u;
+  }
+}
+const hasHost = (u) => /^https?:\/\/[^/?#]/.test(u);
+
+function link(href, ...kids) {
+  const a = el('a');
+  a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer nofollow';
+  a.append(...kids);
+  return a;
+}
+
+// Plain text with its http(s) addresses as links, appended to `parent` (which is returned).
+export function linkify(text, parent) {
+  let last = 0;
+  for (const m of String(text).matchAll(BARE_URL)) {
+    const u = trimURL(m[0]);
+    if (!hasHost(u)) continue;
+    if (m.index > last) parent.append(text.slice(last, m.index));
+    parent.append(link(u, u));
+    last = m.index + u.length;
+  }
+  if (last < text.length) parent.append(text.slice(last));
+  return parent;
+}
 
 function inline(text, parent) {
   let last = 0;
   for (const m of text.matchAll(INLINE)) {
     if (m.index > last) parent.append(text.slice(last, m.index));
     const tok = m[0];
-    if (tok.startsWith('`')) parent.append(el('code', 'ic', tok.slice(1, -1)));
+    if (tok.startsWith('`')) {
+      const code = el('code', 'ic', tok.slice(1, -1));
+      const u = tok.slice(1, -1);
+      parent.append(/^https?:\/\/[^\s<>"'`]+$/.test(u) && trimURL(u) === u && hasHost(u) ? link(u, code) : code);
+    }
     else if (tok.startsWith('**') || tok.startsWith('__')) { const b = el('strong'); inline(tok.slice(2, -2), b); parent.append(b); }
     else if (tok.startsWith('~~')) { const s = el('del'); inline(tok.slice(2, -2), s); parent.append(s); }
     else if (tok.startsWith('*')) { const i = el('em'); inline(tok.slice(1, -1), i); parent.append(i); }
-    else {
+    else if (tok.startsWith('http')) {
+      const u = trimURL(tok);
+      if (hasHost(u)) { parent.append(link(u, u)); if (u.length < tok.length) parent.append(tok.slice(u.length)); } else parent.append(tok);
+    } else {
       const lm = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(tok);
-      if (lm && /^(https?:\/\/|mailto:)/i.test(lm[2])) {
-        const a = el('a', null, lm[1]);
-        a.href = lm[2]; a.target = '_blank'; a.rel = 'noopener noreferrer nofollow';
-        parent.append(a);
-      } else parent.append(tok);
+      if (lm && /^(https?:\/\/|mailto:)/i.test(lm[2])) parent.append(link(lm[2], lm[1]));
+      else parent.append(tok);
     }
     last = m.index + tok.length;
   }
