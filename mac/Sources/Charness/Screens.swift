@@ -1,6 +1,6 @@
 // The native window, built from the standard Mac pieces (macOS 14): a split view with the projects and threads
-// in a sidebar list, the conversation with its message box as the detail, the thread's model / mode and the
-// Changes / Network panels in the title-bar toolbar and an inspector. Same features as public/app.js.
+// in a sidebar list, the conversation with its message box (and the thread's model and mode under it) as the
+// detail, and the Changes / Network panels in an inspector opened from the toolbar. Ported from the retired web UI.
 
 #if canImport(SwiftUI) && canImport(AppKit)
 import AppKit

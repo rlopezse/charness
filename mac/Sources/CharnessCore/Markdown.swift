@@ -1,10 +1,9 @@
-// Markdown for the native screens: a port of public/md.js that gives blocks and styled runs instead of DOM nodes.
-// Same rules, line for line (headings, paragraphs, nested lists, quotes, code fences, tables, rules; inline code,
-// bold, italic, strike-through, and links only for http(s) and mailto), so an answer looks the same in both UIs.
+// Markdown for the native screens: blocks and styled runs (headings, paragraphs, nested lists, quotes, code
+// fences, tables, rules; inline code, bold, italic, strike-through, and links only for http(s) and mailto).
 // Bare http(s) addresses become links too (also a `code span` that is just an address); linkify() does the same
-// for plain text such as command output.
-// Nothing here is ever interpreted as markup: the views draw text runs. core-checks compares the result with the
-// tree md.js builds for every sample in Fixtures/markdown.json (node mac/Fixtures/make-markdown-fixtures.mjs).
+// for plain text such as command output. Nothing here is ever interpreted as markup: the views draw text runs.
+// A port of the retired web UI's md.js: core-checks requires the same structure md.js built for every sample in
+// mac/Fixtures/markdown.json (recorded from it). New behaviour goes here and into new samples, written by hand.
 
 import Foundation
 

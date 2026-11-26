@@ -1,5 +1,5 @@
 // The conversation: messages (Markdown answers, tool cards), the live activity while Claude works, and the
-// approval cards. Same content and rules as public/app.js's msgNode/toolCard/inputView/renderActivity/permCard.
+// approval cards. Ported from the retired web UI (app.js).
 
 #if canImport(SwiftUI) && canImport(AppKit)
 import AppKit

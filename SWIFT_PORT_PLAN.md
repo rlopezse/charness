@@ -1,7 +1,8 @@
 # Swift port plan
 
-Status: **done.** The server and the app are Swift; the Node server was retired (2026-11-25). What follows is the
-record of how it was ported.
+Status: **done.** The server and the app are Swift; the Node server was retired (2026-11-25), and the web UI,
+Node and npm the next day: Charness is now one self-contained Swift app. What follows is the record of how it
+was ported.
 
 ## Progress
 
@@ -17,7 +18,7 @@ record of how it was ported.
 | 9 | Git Changes panel | done early (part of the server port) |
 | 10-14 | Native SwiftUI screens; web UI kept behind View ▸ Use Web Interface; login-shell PATH for Claude's commands | done (client, state and Markdown tested on Linux; views built on the Mac) |
 | — | Retire the Node server (`server.mjs`, `lib/`, `launch.sh`); its answers kept as fixtures | done |
-| 15 | Tests and packaging | |
+| 15 | Tests and packaging: the web UI, the terminal server and every Node script retired; `test/smoke.mjs` and the Node test helpers (`fake-claude.mjs`, `guard-servers.mjs`) ported into `core-checks` and checked against the same recordings; Claude Code downloaded by the build script (checksum-pinned) and carried inside the app, with an icon | done (2026-11-26) |
 
 Days 7-8 notes: `HTTP.swift` (loopback HTTP/1.1, chunked bodies, SSE) and `Server.swift` port `server.mjs`
 route by route, including the read-only git panel (so day 9 is done too) and attachments (`Uploads.swift`).

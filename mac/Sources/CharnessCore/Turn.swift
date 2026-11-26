@@ -1,5 +1,5 @@
 // One user turn (ported from runTurn() in lib/agent.mjs, the retired Node version) with Claude Code. Turns the stream of SDK messages
-// into the same UI events (the shapes public/reduce.js folds into a thread) and the same live activity feed,
+// into the same UI events (the shapes Reducer folds into a thread) and the same live activity feed,
 // and routes permission prompts to the host. mac/Fixtures/turns/*.json hold what the Node version reports for
 // the same runs (recorded before it was retired); `swift run core-checks` requires exactly the same.
 
@@ -94,7 +94,7 @@ enum JS {
     static func utf16Count(_ s: String) -> Int { s.utf16.count }
 }
 
-/// One-line summary of a tool call. Port of toolSummary() in public/reduce.js.
+/// One-line summary of a tool call. Port of toolSummary() in the retired web UI's reduce.js.
 public func toolSummary(_ name: String, _ input: JSONValue?) -> String {
     let i = input?.objectValue ?? JSONObject()
     func line(_ s: String) -> String { JS.prefix(String(s.split(separator: "\n", omittingEmptySubsequences: false).first ?? ""), 140) }

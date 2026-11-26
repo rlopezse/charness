@@ -1,6 +1,6 @@
 // Files attached to a message. Kept per thread in <data>/uploads/<threadId>/
 // (folders 0700, files 0600), outside the project so nothing lands in the user's repo. Claude gets read access
-// to that folder (--add-dir) and the message lists the files' paths. Never served back to the browser.
+// to that folder (--add-dir) and the message lists the files' paths. Never served back over HTTP.
 //
 // Paths are built as plain strings, not with URL: on macOS, URL hands file names to the system in decomposed
 // Unicode ("ñ" as "n" + "~"), so "foto ñ.png" would be stored under different bytes than Node stores it.

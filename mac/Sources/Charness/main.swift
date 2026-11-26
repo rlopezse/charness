@@ -1,14 +1,15 @@
-// Charness.app: the whole Charness server runs inside this app (Swift, CharnessCore), shown in ONE window with
-// native SwiftUI screens (RootView, talking to the server over loopback like the web UI does). The web UI is still
-// there behind View ▸ Use Web Interface, in a WKWebView, as a fallback.
-// No Node process: Claude Code itself is the only other program it starts.
-// Quitting stops the server (and any running turn) and writes what is pending to disk.
+// Charness.app: the whole Charness server runs inside this app (CharnessCore, on loopback only), shown in ONE
+// window of native SwiftUI screens (RootView, talking to the server through Client.swift). The app carries its
+// own copy of Claude Code (Contents/MacOS/claude, put there by scripts/make-mac-app.sh): it is the only other
+// program it starts. Quitting stops the server (and any running turn) and writes what is pending to disk.
 // Built by scripts/make-mac-app.sh (swift build); no Xcode project and no third-party code.
+//
+// Mock mode (no Claude, no API key, for trying the screens): open -a Charness --args --mock
+// (or: defaults write local.charness.app CharnessMock -bool true)
 
 #if canImport(AppKit) && canImport(SwiftUI)
 import AppKit
 import SwiftUI
-import WebKit
 import CharnessCore
 
 /// Getting the server going, done off the main thread.
@@ -41,9 +42,22 @@ enum Startup {
         return env
     }
 
+    /// The Claude Code inside the app (nil when run from `swift run`: then HARNESS_CLAUDE_BIN or `claude` on PATH).
+    static var bundledClaude: String? {
+        guard let dir = Bundle.main.executableURL?.deletingLastPathComponent() else { return nil }
+        let path = dir.appendingPathComponent("claude").path
+        return FileManager.default.isExecutableFile(atPath: path) ? path : nil
+    }
+
+    static var mock: Bool {
+        CommandLine.arguments.contains("--mock") || UserDefaults.standard.bool(forKey: "CharnessMock")
+    }
+
     /// Starts the server on the first free port from 4317.
-    static func start(root: String) -> Result<CharnessServer, Error> {
-        var config = ServerConfig(root: URL(fileURLWithPath: root, isDirectory: true), environment: environment())
+    static func start() -> Result<CharnessServer, Error> {
+        var config = ServerConfig(environment: environment())
+        config.claudeExecutable = bundledClaude
+        if mock { config.mock = true }
         let first = config.port
         for port in first...(first + 20) {
             config.port = port
@@ -72,22 +86,12 @@ struct StartingView: View {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, WKNavigationDelegate, WKUIDelegate {
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var window: NSWindow!
-    private var webView: WKWebView?
     private var model: AppModel?
     private var server: CharnessServer?
-    private var port: Int?
-    private var tokenURL: URL?
     private var quitting = false
-
-    private let root: String = (Bundle.main.object(forInfoDictionaryKey: "CharnessRoot") as? String) ?? ""
-
-    /// View ▸ Use Web Interface (remembered). Off = the native screens.
-    private var useWebUI: Bool {
-        get { UserDefaults.standard.bool(forKey: "CharnessUseWebUI") }
-        set { UserDefaults.standard.set(newValue, forKey: "CharnessUseWebUI") }
-    }
 
     // MARK: lifecycle
 
@@ -96,13 +100,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         buildMenu()
         buildWindow()
         NSApp.activate(ignoringOtherApps: true)
-
-        guard !root.isEmpty, FileManager.default.fileExists(atPath: root + "/public/index.html") else {
-            fail("Charness couldn't start",
-                 "The Charness folder was not found (\(root.isEmpty ? "not set" : root)). "
-                 + "Re-run scripts/make-mac-app.sh from the charness folder.")
-            return
-        }
 
         let others = otherCopies()
         guard !others.isEmpty else { return startServer() }
@@ -131,9 +128,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func startServer() {
-        let root = self.root
         Task { @MainActor in
-            let result = await Task.detached(priority: .userInitiated) { Startup.start(root: root) }.value
+            let result = await Task.detached(priority: .userInitiated) { Startup.start() }.value
             self.serverStarted(result)
         }
     }
@@ -144,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         return true
     }
 
-    // Closing the window keeps the server running (as before); Cmd-Q stops it.
+    // Closing the window keeps the server running; Cmd-Q stops it.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -166,10 +162,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             fail("Charness couldn't start", "\(error)")
         case .success(let s):
             server = s
-            port = s.port
-            guard let url = URL(string: s.link) else { return fail("Charness couldn't start", "Bad address: \(s.link)") }
-            tokenURL = url
-            showInterface()
+            let m = AppModel(port: s.port, token: s.token)
+            model = m
+            let hosting = NSHostingController(rootView: RootView(model: m))
+            hosting.sceneBridgingOptions = [.toolbars, .title]   // SwiftUI's toolbar and title go to this window
+            setContent(hosting)
+            m.start()
         }
     }
 
@@ -187,140 +185,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func buildWindow() {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 820),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         window.title = "Charness"
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 760, height: 480)
         window.toolbarStyle = .unified
-        setContent(NSHostingController(rootView: StartingView()), native: true)
+        setContent(NSHostingController(rootView: StartingView()))
         window.center()
         window.setFrameAutosaveName("CharnessMainWindow")
         window.makeKeyAndOrderFront(nil)
     }
 
-    /// Puts the chosen interface in the window: the native screens, or the web UI in a WKWebView.
-    private func showInterface() {
-        guard let server, let url = tokenURL else { return }
-        if useWebUI {
-            model?.stop()
-            model = nil
-            let web = webView ?? makeWebView()
-            webView = web
-            let vc = NSViewController()
-            vc.view = web
-            setContent(vc, native: false)
-            web.load(URLRequest(url: url))
-        } else {
-            webView = nil
-            model?.stop()
-            let m = AppModel(port: server.port, token: server.token)
-            model = m
-            let hosting = NSHostingController(rootView: RootView(model: m))
-            hosting.sceneBridgingOptions = [.toolbars, .title]   // SwiftUI's toolbar and title go to this window
-            setContent(hosting, native: true)
-            m.start()
-        }
-    }
-
-    /// Swaps what the window shows, keeping its size and place. The native screens use the whole window
-    /// (sidebar under the title bar, toolbar in it); the web page sits below a plain title bar.
-    private func setContent(_ vc: NSViewController, native: Bool) {
+    /// Swaps what the window shows, keeping its size and place (a hosting controller would resize the window to
+    /// its own size otherwise).
+    private func setContent<V: View>(_ hosting: NSHostingController<V>) {
         let frame = window.frame
-        if let hosting = vc as? NSHostingController<RootView> { hosting.sizingOptions = [] }
-        if let hosting = vc as? NSHostingController<StartingView> { hosting.sizingOptions = [] }
-        if native { window.styleMask.insert(.fullSizeContentView) } else { window.styleMask.remove(.fullSizeContentView) }
+        hosting.sizingOptions = []
         window.toolbar = nil
-        window.contentViewController = vc
-        if !native { window.title = "Charness"; window.subtitle = "" }
+        window.contentViewController = hosting
         window.setFrame(frame, display: true)
-    }
-
-    private func makeWebView() -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default()   // this app's own store, separate from Safari and Chrome
-        config.preferences.javaScriptCanOpenWindowsAutomatically = false
-        let web = WKWebView(frame: .zero, configuration: config)
-        web.navigationDelegate = self
-        web.uiDelegate = self
-        web.allowsBackForwardNavigationGestures = false
-        if #available(macOS 13.3, *) {
-            // Opt-in Web Inspector for debugging: defaults write local.charness.app CharnessInspectable -bool true
-            web.isInspectable = UserDefaults.standard.bool(forKey: "CharnessInspectable")
-        }
-        return web
-    }
-
-    private func isOurs(_ url: URL) -> Bool {
-        url.scheme == "http" && url.host == "127.0.0.1" && port != nil && url.port == port
-    }
-
-    private func openOutside(_ url: URL) {
-        if let s = url.scheme?.lowercased(), ["http", "https", "mailto"].contains(s) {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    // MARK: WKNavigationDelegate / WKUIDelegate (web interface only)
-
-    // The window only ever shows our own server. Links elsewhere go to the default browser.
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = navigationAction.request.url else { return decisionHandler(.cancel) }
-        if url.scheme == "about" || isOurs(url) { return decisionHandler(.allow) }
-        if navigationAction.navigationType == .linkActivated { openOutside(url) }
-        decisionHandler(.cancel)
-    }
-
-    // target="_blank" links (Markdown links in chat) open in the default browser, never in a new window here.
-    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
-                 for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url, !isOurs(url) { openOutside(url) }
-        return nil
-    }
-
-    // <input type="file"> (the 📎 button): a WKWebView shows no file picker unless the app provides one.
-    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.resolvesAliases = true
-        panel.prompt = "Attach"
-        panel.message = "Choose files to attach to your message"
-        panel.beginSheetModal(for: window) { response in
-            completionHandler(response == .OK ? panel.urls : nil)
-        }
-    }
-
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        let ns = error as NSError
-        if tokenURL == nil || (ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled) { return }
-        webView.loadHTMLString(
-            "<body style='font:13px -apple-system;color:#888;padding:2em'>Can't reach the Charness server "
-            + "(\(error.localizedDescription)).<br>Press ⌘R to retry, or quit and reopen the app.</body>", baseURL: nil)
-    }
-
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        reloadPage(nil)
     }
 
     // MARK: menu actions
 
-    @objc func reloadPage(_ sender: Any?) {
-        if let model { model.resync(); return }
-        guard let web = webView else { return }
-        if let url = web.url, isOurs(url) { web.reload() }
-        else if let url = tokenURL { web.load(URLRequest(url: url)) }
-    }
-    @objc func zoomIn(_ sender: Any?) { if let w = webView { w.pageZoom = min(w.pageZoom + 0.1, 3.0) } }
-    @objc func zoomOut(_ sender: Any?) { if let w = webView { w.pageZoom = max(w.pageZoom - 0.1, 0.5) } }
-    @objc func actualSize(_ sender: Any?) { webView?.pageZoom = 1.0 }
-    @objc func toggleWebUI(_ sender: Any?) {
-        useWebUI.toggle()
-        showInterface()
-    }
+    @objc func reloadPage(_ sender: Any?) { model?.resync() }
     @objc func newThread(_ sender: Any?) { model?.newThreadHere() }
     @objc func addProject(_ sender: Any?) { model?.chooseProjectFolder() }
     @objc func toggleChanges(_ sender: Any?) { model?.toggleDrawer(.changes) }
@@ -329,17 +218,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         guard let action = item.action else { return true }
         switch action {
-        case #selector(toggleWebUI(_:)):
-            item.state = useWebUI ? .on : .off
-            return server != nil
-        case #selector(zoomIn(_:)), #selector(zoomOut(_:)), #selector(actualSize(_:)):
-            return webView != nil
         case #selector(newThread(_:)):
             return model != nil && !(model?.s.projects.isEmpty ?? true)
-        case #selector(addProject(_:)), #selector(toggleChanges(_:)), #selector(toggleNetwork(_:)):
+        case #selector(addProject(_:)), #selector(toggleChanges(_:)), #selector(toggleNetwork(_:)), #selector(reloadPage(_:)):
             return model != nil
-        case #selector(reloadPage(_:)):
-            return server != nil
         default:
             return true
         }
@@ -393,12 +275,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         add(view, "Network", #selector(toggleNetwork(_:)), "2", [.command, .option], target: self)
         view.addItem(.separator())
         add(view, "Reload", #selector(reloadPage(_:)), "r", target: self)
-        view.addItem(.separator())
-        add(view, "Actual Size", #selector(actualSize(_:)), "0", target: self)
-        add(view, "Zoom In", #selector(zoomIn(_:)), "=", target: self)
-        add(view, "Zoom Out", #selector(zoomOut(_:)), "-", target: self)
-        view.addItem(.separator())
-        add(view, "Use Web Interface", #selector(toggleWebUI(_:)), "", target: self)
 
         let win = submenu("Window")
         add(win, "Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")
@@ -409,10 +285,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 }
 
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.run()
+// Top-level code runs on the main thread, but Swift 5 mode doesn't treat it as main-actor code: say so.
+MainActor.assumeIsolated {
+    let app = NSApplication.shared
+    let delegate = AppDelegate()   // NSApplication holds its delegate weakly; run() never returns, so this lives
+    app.delegate = delegate
+    app.run()
+}
 #else
-print("Charness.app is macOS-only. On other systems, use `npm start`.")
+print("Charness.app is macOS-only. Its core builds and is tested on Linux: swift run --package-path mac core-checks")
 #endif
