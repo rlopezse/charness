@@ -230,7 +230,7 @@ public final class HTTPServer: @unchecked Sendable {
 
 extension Net {
     /// A listening socket on 127.0.0.1:port (0 = any free port) and the port it got.
-    static func listenLoopback(port: Int) throws -> (Int32, Int) {
+    public static func listenLoopback(port: Int) throws -> (Int32, Int) {
         #if canImport(Darwin)
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         #else
@@ -254,5 +254,32 @@ extension Net {
         var len = socklen_t(MemoryLayout<sockaddr_in>.size)
         _ = withUnsafeMutablePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }
         return (fd, Int(UInt16(bigEndian: addr.sin_port)))
+    }
+}
+
+extension Net {
+    /// A small TCP server on 127.0.0.1 (any free port) that hands each connection to `handle` on its own thread.
+    /// Returns the port and a function that stops it. For test servers (core-checks).
+    public static func serve(_ handle: @escaping @Sendable (Int32) -> Void) throws -> (port: Int, stop: () -> Void) {
+        let (fd, port) = try listenLoopback(port: 0)
+        Thread.detachNewThread {
+            while true {
+                let client = accept(fd, nil, nil)
+                if client < 0 { if errno == EINTR { continue }; return }
+                Thread.detachNewThread {
+                    handle(client)
+                    _ = close(client)
+                }
+            }
+        }
+        return (port, { _ = shutdown(fd, Int32(SHUT_RDWR)); _ = close(fd) })
+    }
+
+    /// Ends our side like Node's socket.end(): no more sending, then read until the other side closes too
+    /// (so unread bytes don't turn the close into a reset). At most `seconds`.
+    public static func finish(_ fd: Int32, seconds: Int = 2) {
+        _ = shutdown(fd, Int32(SHUT_WR))
+        setReceiveTimeout(fd, seconds)
+        while receive(fd) != nil {}
     }
 }

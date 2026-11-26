@@ -224,7 +224,7 @@ public final class EgressGuard: @unchecked Sendable {
 public enum Net {
     static func nowMs() -> Double { (Date().timeIntervalSince1970 * 1000).rounded(.down) }
 
-    static func find(_ needle: [UInt8], in hay: [UInt8]) -> Int? {
+    public static func find(_ needle: [UInt8], in hay: [UInt8]) -> Int? {
         guard hay.count >= needle.count else { return nil }
         for i in 0...(hay.count - needle.count) where hay[i] == needle[0] && Array(hay[i..<(i + needle.count)]) == needle { return i }
         return nil
@@ -306,7 +306,7 @@ public enum Net {
 
     /// Copies bytes both ways until either side closes, then shuts both down (Node: pipe both ways, and when
     /// either socket closes, destroy the other).
-    static func pump(_ a: Int32, _ b: Int32) {
+    public static func pump(_ a: Int32, _ b: Int32) {
         let done = DispatchSemaphore(value: 0)
         Thread.detachNewThread {
             copy(from: b, to: a)

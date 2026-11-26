@@ -1,6 +1,6 @@
-// The client side of the native screens: talks to the Charness server over loopback exactly as the web UI
-// (public/app.js) does — token -> cookie, X-Harness header, Origin — so the native screens go through every check
-// the server makes, and keeps the same screen state app.js keeps. Foundation only, so it is tested on Linux
+// The client side of the native screens: talks to the in-app Charness server over loopback — token -> cookie,
+// X-Harness header, Origin — so the screens go through every check the server makes, and keeps the screen state
+// (ported from the retired web UI's app.js). Foundation only, so it is tested on Linux
 // against a real server in mock mode (`swift run core-checks`); the SwiftUI views just draw ClientState.
 
 import Foundation
@@ -28,11 +28,11 @@ public final class APIClient: @unchecked Sendable {
     var host: String { "127.0.0.1:\(port)" }
     var cookieHeader: String { lock.lock(); defer { lock.unlock() }; return cookie }
 
-    /// Trades the access token for the session cookie (the first visit to /?token=… in a browser).
+    /// Trades the access token for the session cookie.
     public func login(token: String) throws {
         let enc = token.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-_"))) ?? token
         let r = try raw("GET", "/?token=\(enc)", headers: [], body: [])
-        guard r.status == 302, let set = r.headers["set-cookie"], let pair = set.split(separator: ";").first else {
+        guard r.status == 204, let set = r.headers["set-cookie"], let pair = set.split(separator: ";").first else {
             throw APIError(status: r.status, message: "The server refused the access token.")
         }
         lock.lock(); cookie = String(pair); lock.unlock()
@@ -174,7 +174,7 @@ public final class EventStream: @unchecked Sendable {
 
 // MARK: - what the screens show
 
-/// One message of a thread, typed for drawing (the saved form is the JSON public/reduce.js builds).
+/// One message of a thread, typed for drawing (the saved form is the JSON Reducer builds).
 public enum ChatMessage {
     case user(text: String, files: [(name: String, size: Int)])
     case assistant(blocks: [ChatBlock], done: (cost: Double?, turns: Double?, ms: Double?)?)
@@ -256,7 +256,7 @@ public struct Option: Hashable {
     public let label: String
 }
 
-/// Everything the screens show, kept the way public/app.js keeps its state `S`.
+/// Everything the screens show (the retired web UI's state `S`).
 public struct ClientState {
     public var projects: [Project] = []
     public var threads: [ChatThread] = []

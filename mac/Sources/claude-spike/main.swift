@@ -7,9 +7,9 @@
 //   --mode MODE      default (asks before edits and commands) | acceptEdits | plan   (default: default)
 //   --model ID       e.g. claude-sonnet-5-5
 //   --resume ID      continue an earlier session (printed at the end of each run)
-//   --claude PATH    the claude binary (default: HARNESS_CLAUDE_BIN, then the one bundled in node_modules,
-//                    then `claude` on PATH)
-//   --mock           no Claude at all: the built-in mock (like `npm run mock`), to try things safely
+//   --claude PATH    the claude binary (default: HARNESS_CLAUDE_BIN, then the copy scripts/make-mac-app.sh
+//                    downloaded into mac/.build/claude-code/, then `claude` on PATH)
+//   --mock           no Claude at all: the built-in mock, to try things safely
 // Permission prompts are asked here in the terminal. Ctrl-C stops the turn.
 // Unlike the app, this spike does NOT send Claude's traffic through the egress guard; the environment
 // allow-list and telemetry switches do apply.
@@ -41,8 +41,8 @@ let mode = option("--mode") ?? "default"
 let model = option("--model")
 let resume = option("--resume")
 let claudeOption = option("--claude").map(expand)
-// for the test stand-in: --claude node --claude-arg mac/Fixtures/fake-claude.mjs (made absolute: claude runs in --cwd)
-let claudeArgs = option("--claude-arg").map { [URL(fileURLWithPath: expand($0)).standardizedFileURL.path] } ?? []
+// for the test stand-in: --claude mac/.build/debug/core-checks --claude-arg --fake-claude
+let claudeArgs = option("--claude-arg").map { [$0] } ?? []
 let prompt = args.joined(separator: " ")
 
 guard ["default", "acceptEdits", "plan"].contains(mode) else {
@@ -50,17 +50,14 @@ guard ["default", "acceptEdits", "plan"].contains(mode) else {
     exit(2)
 }
 
-// Find the claude binary: the one the Node app uses (bundled with the Agent SDK) unless told otherwise.
+// Find the claude binary: the pinned, checksum-verified copy the app is built with, unless told otherwise.
 let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent()
-var machine = utsname()
-uname(&machine)
-let arch = withUnsafeBytes(of: &machine.machine) { String(decoding: $0.prefix(while: { $0 != 0 }), as: UTF8.self) }
-let bundled = repo.appendingPathComponent("node_modules/@anthropic-ai/claude-agent-sdk-darwin-\(arch == "x86_64" ? "x64" : "arm64")/claude").path
+let bundled = repo.appendingPathComponent("mac/.build/claude-code/claude").path
 let candidates = [claudeOption, ProcessInfo.processInfo.environment["HARNESS_CLAUDE_BIN"], bundled, ClaudeLaunch.which("claude")]
 let found = useMock ? "(built-in mock)" : candidates.compactMap({ $0 }).first(where: { FileManager.default.isExecutableFile(atPath: $0) })
 guard let claude = found else {
-    FileHandle.standardError.write("No claude binary found. Run `npm install` in \(repo.path), or pass --claude PATH.\n".data(using: .utf8)!)
+    FileHandle.standardError.write("No claude binary found. Run ./scripts/make-mac-app.sh in \(repo.path) (it downloads it), or pass --claude PATH.\n".data(using: .utf8)!)
     exit(1)
 }
 

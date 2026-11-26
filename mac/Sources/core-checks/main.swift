@@ -1,11 +1,14 @@
-// Self-test for CharnessCore, in the spirit of test/smoke.mjs: one plain program, no test framework, so it
+// Self-test for CharnessCore: one plain program, no test framework, so it
 // runs with only the Command Line Tools (no Xcode) and on Linux.
 //     swift run --package-path mac core-checks
-// Fixtures in mac/Fixtures are real output of the retired Node version (and of JavaScript itself), kept as the
-// expected results; the scripts there regenerate the ones that still can be (JSON formats, the reducer).
+// Fixtures in mac/Fixtures are real output of the retired Node version and web UI (and of JavaScript itself),
+// kept as the expected results; they can't be regenerated, so new behaviour gets new checks written by hand.
+// It also plays the Claude Code stand-in for its own turn checks: `core-checks --fake-claude` (FakeClaude.swift).
 
 import Foundation
 import CharnessCore
+
+if CommandLine.arguments.dropFirst().first == "--fake-claude" { FakeClaude.run(Array(CommandLine.arguments.dropFirst(2))) }
 
 var passed = 0
 var failed = 0
@@ -196,7 +199,7 @@ do {
 
 // MARK: - reducer (day 5)
 
-print("reducer matches public/reduce.js (mac/Fixtures/reducer.json)")
+print("reducer matches the web UI's reduce.js (mac/Fixtures/reducer.json)")
 do {
     let golden = (try? JSONValue.parse(Array((try? Data(contentsOf: fixtures.appendingPathComponent("reducer.json"))) ?? Data())))?.objectValue
     let sequences = golden?["sequences"]?.arrayValue ?? []
@@ -276,34 +279,47 @@ func probe(_ port: Int, _ request: String, until marker: String? = nil) -> Strin
 }
 
 let guardGolden = (try? JSONValue.parse(Array((try? Data(contentsOf: fixtures.appendingPathComponent("guard.json"))) ?? Data())))?.objectValue
-if let node = ClaudeLaunch.which("node"), let golden = guardGolden {
-    // the servers the guards tunnel to and a fake corporate proxy (mac/Fixtures/guard-servers.mjs); the answers
-    // they are compared with were recorded from the Node guard before it was retired (mac/Fixtures/guard.json)
-    let helper = Process()
-    helper.executableURL = URL(fileURLWithPath: node)
-    helper.arguments = [fixtures.appendingPathComponent("guard-servers.mjs").path]
-    let helperIn = Pipe(), helperOut = Pipe()
-    helper.standardInput = helperIn
-    helper.standardOutput = helperOut
-    let helperLock = NSLock()
-    var helperLines: [JSONObject] = []
-    try? helper.run()
-    Thread.detachNewThread {
+/// Lines the guard test servers log, kept across threads.
+final class LineLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [JSONObject] = []
+    func add(_ o: JSONObject) { lock.lock(); items.append(o); lock.unlock() }
+    var all: [JSONObject] { lock.lock(); defer { lock.unlock() }; return items }
+}
+
+if let golden = guardGolden {
+    // the servers the guards tunnel to: one that greets and closes, one that answers the first bytes it gets, and
+    // a fake corporate proxy that requires a login (ported from the retired guard-servers.mjs). The answers they
+    // are compared with were recorded from the Node guard before it was retired (mac/Fixtures/guard.json).
+    let helperLog = LineLog()
+    let echoServer = try? Net.serve { s in _ = Net.sendAll(s, Array("hello-from-echo".utf8)); Net.finish(s) }
+    let pongServer = try? Net.serve { s in
+        if let d = Net.receive(s) { _ = Net.sendAll(s, Array("PONG:".utf8) + d) }
+        Net.finish(s)
+    }
+    let echoPort = echoServer?.port ?? 0
+    let proxyServer = try? Net.serve { s in
         var buf: [UInt8] = []
-        while true {
-            let chunk = helperOut.fileHandleForReading.availableData   // a pipe, not a socket: read, not recv
-            if chunk.isEmpty { break }
+        while let chunk = Net.receive(s) {
             buf += chunk
-            while let nl = buf.firstIndex(of: 10) {
-                if let o = (try? JSONValue.parse(Array(buf[..<nl])))?.objectValue { helperLock.lock(); helperLines.append(o); helperLock.unlock() }
-                buf.removeSubrange(...nl)
+            guard let i = Net.find([13, 10, 13, 10], in: buf) else { continue }
+            let head = String(decoding: buf[..<(i + 4)], as: UTF8.self)
+            helperLog.add(["proxyRequest": .string(head)])
+            if head.hasPrefix("CONNECT 127.0.0.1:\(echoPort) "), head.contains("Proxy-Authorization: Basic dXNAZXI6cEBzcw==\r\n"),
+               let up = Net.connect(host: "127.0.0.1", port: echoPort) {
+                _ = Net.sendAll(s, Array("HTTP/1.1 200 Connection established\r\nVia: fake-proxy\r\n\r\n".utf8))
+                Net.pump(s, up)
+                _ = close(up)
+            } else {
+                _ = Net.sendAll(s, Array("HTTP/1.1 407 Proxy Authentication Required\r\n\r\n".utf8))
+                Net.finish(s)
             }
+            return
         }
     }
     var ready: JSONObject?
-    for _ in 0..<100 where ready == nil {
-        Thread.sleep(forTimeInterval: 0.1)
-        helperLock.lock(); ready = helperLines.first { $0["ready"] == true }; helperLock.unlock()
+    if let e = echoServer, let p = pongServer, let x = proxyServer {
+        ready = ["echo": .number(Double(e.port)), "pong": .number(Double(p.port)), "proxy": .number(Double(x.port))]
     }
     if let ready = ready {
         let port = { (k: String) in Int(ready[k]?.doubleValue ?? 0) }
@@ -347,7 +363,7 @@ if let node = ClaudeLaunch.which("node"), let golden = guardGolden {
               probes.count >= 20 && mismatches.isEmpty)
 
         Thread.sleep(forTimeInterval: 0.5)
-        helperLock.lock(); let lines = helperLines; helperLock.unlock()
+        let lines = helperLog.all
         swiftLock.lock(); let mine = swiftLog; swiftLock.unlock()
         func noTs(_ o: JSONObject) -> JSONValue { var c = o; c["ts"] = nil; return .object(c) }
         let swiftLogText = tokens(JSONValue.array(mine.map { g, e -> JSONValue in ["guard": .string(g), "entry": noTs(e.json.objectValue!)] }).jsonString())
@@ -364,10 +380,9 @@ if let node = ClaudeLaunch.which("node"), let golden = guardGolden {
     } else {
         check("the guard test servers started", false)
     }
-    try? helperIn.fileHandleForWriting.close()
-    helper.waitUntilExit()
+    echoServer?.stop(); pongServer?.stop(); proxyServer?.stop()
 } else {
-    print("  - skipped: node not found on PATH (needed for the guard's test servers)")
+    check("mac/Fixtures/guard.json is readable", false)
 }
 
 // MARK: - server paths (days 7-8)
@@ -401,7 +416,8 @@ do {
 // MARK: - Claude Code bridge (day 3)
 
 print("talks to Claude Code like the Agent SDK")
-let fakeClaude = fixtures.appendingPathComponent("fake-claude.mjs").path
+/// This program itself plays the Claude Code stand-in (FakeClaude.swift) when started with --fake-claude.
+let selfPath = Bundle.main.executablePath ?? CommandLine.arguments[0]
 do {
     var l = ClaudeLaunch(executable: "/x/claude", cwd: "/tmp")
     l.model = "claude-sonnet-5-5"; l.permissionMode = "acceptEdits"; l.resume = "prev-session"
@@ -507,13 +523,13 @@ if let env = (try? JSONValue.parse(Array((try? Data(contentsOf: fixtures.appendi
     check("mac/Fixtures/env.json is readable", false)
 }
 
-if let node = ClaudeLaunch.which("node") {
+do {
     // whole turns against the stand-in, compared with what the Node version (real Agent SDK) reported
     // (mac/Fixtures/turns/*.json, recorded before the Node server was retired)
     func runTurnLog(prompt: String, allow: Bool?, resume: String?, stopAfter: Double? = nil, stopWhen: String = "Bash: sleep") -> (JSONValue, Double) {
         let cwd = newCwd()
-        var launch = ClaudeLaunch(executable: node, cwd: cwd)
-        launch.executableArgs = [fakeClaude]
+        var launch = ClaudeLaunch(executable: selfPath, cwd: cwd)
+        launch.executableArgs = ["--fake-claude"]
         launch.model = "claude-sonnet-5-5"
         launch.permissionMode = "acceptEdits"
         launch.resume = resume
@@ -541,11 +557,9 @@ if let node = ClaudeLaunch.which("node") {
     bad.run()
     check("a missing claude binary is reported, not a crash",
           badEvents.count == 1 && badEvents[0].objectValue?["text"]?.stringValue?.hasPrefix("Could not start Claude Code") == true)
-} else {
-    print("  - skipped: node not found on PATH (needed to run the Claude Code stand-in)")
 }
 
-print("built-in mock (npm run mock) without Node")
+print("built-in mock")
 func mockLog(prompt: String, mode: String, allow: Bool?, resume: String?, stopAfter: Double? = nil, stopWhen: String = "") -> (JSONValue, Double) {
     let cwd = newCwd()
     let mock = MockClaude(cwd: cwd, model: "claude-sonnet-5-5", permissionMode: mode, resume: resume)
@@ -580,10 +594,9 @@ do {
 
 // MARK: - native screens' client (SwiftUI)
 
-print("native client talks to a real server (mock) like the web UI does")
+print("the app's client talks to a real server (mock)")
 do {
-    let root = fixtures.deletingLastPathComponent().deletingLastPathComponent()
-    var cfg = ServerConfig(root: root, environment: [:])
+    var cfg = ServerConfig(environment: [:])
     cfg.home = tempDir(); cfg.port = 0; cfg.mock = true; cfg.guardOn = false
     let server = try CharnessServer(config: cfg)
     try server.start()
@@ -620,7 +633,7 @@ do {
     check("the live-event feed connects with the session cookie", waitFor(5) { $0.connected })
 
     withState { $0.applyState((try? api.request("GET", "/api/state")) ?? .null) }
-    check("state: mock flag, models and modes as the web UI gets them",
+    check("state: mock flag, models and modes",
           withState { $0.mock && $0.models.first?.id == "" && $0.modes.map(\.id) == ["ask", "edits", "commands", "plan"] })
 
     let made = tempDir()
@@ -718,7 +731,7 @@ do {
     check("not busy any more: the activity goes", s.busy.isEmpty && s.activity["t1"] == nil)
     check("a 'state' event asks for a refresh", s.handle(["type": "state"]) == .refreshState && s.handle(["type": "nope"]) == .none)
 
-    check("file sizes like the web UI", ClientText.fileSize(1023) == "1023 B" && ClientText.fileSize(1536) == "1.5 KB" && ClientText.fileSize(3 * 1024 * 1024) == "3.0 MB")
+    check("file sizes", ClientText.fileSize(1023) == "1023 B" && ClientText.fileSize(1536) == "1.5 KB" && ClientText.fileSize(3 * 1024 * 1024) == "3.0 MB")
     check("file icons", ClientText.fileIcon("A.JPEG") == "🖼" && ClientText.fileIcon("x.pdf") == "📕" && ClientText.fileIcon("notes.txt") == "📄")
     check("elapsed time", ClientText.elapsed(since: 0, now: 12_900) == "12s" && ClientText.elapsed(since: 0, now: 184_000) == "3m 4s" && ClientText.elapsed(since: 10, now: 0) == "0s")
     check("the done line", ClientText.doneLine(cost: 0.0042, turns: 2, ms: 1234) == "$0.0042 · 2 turns · 1.2s"
@@ -727,11 +740,238 @@ do {
     check("mode hints", ClientText.modeHint("plan").hasPrefix("Read-only") && ClientText.modeHint("x") == "")
 }
 
+// MARK: - the server end to end (was test/smoke.mjs)
+
+/// One HTTP request to a loopback port, as any program on the Mac (or a web page) could send it.
+func httpRequest(_ port: Int, _ method: String, _ path: String, host: String? = nil, headers: [(String, String)] = [],
+                 body: [UInt8] = []) -> (status: Int, headers: [String: String], body: String) {
+    guard let fd = Net.connect(host: "127.0.0.1", port: port) else { return (0, [:], "") }
+    defer { _ = close(fd) }
+    Net.setReceiveTimeout(fd, 30)
+    var head = "\(method) \(path) HTTP/1.1\r\nHost: \(host ?? "127.0.0.1:\(port)")\r\n"
+    for (k, v) in headers { head += "\(k): \(v)\r\n" }
+    head += "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+    guard Net.sendAll(fd, Array(head.utf8) + body) else { return (0, [:], "") }
+    var got: [UInt8] = []
+    while let chunk = Net.receive(fd) { got += chunk }
+    guard let end = Net.find([13, 10, 13, 10], in: got) else { return (0, [:], "") }
+    let lines = String(decoding: got[..<end], as: UTF8.self).components(separatedBy: "\r\n")
+    var hs: [String: String] = [:]
+    for l in lines.dropFirst() {
+        guard let colon = l.firstIndex(of: ":") else { continue }
+        hs[l[..<colon].lowercased()] = l[l.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+    }
+    return (Int(lines[0].split(separator: " ").dropFirst().first ?? "") ?? 0, hs, String(decoding: got[(end + 4)...], as: UTF8.self))
+}
+
+func waitFor<T>(_ seconds: Double = 6, _ probe: () -> T?) -> T? {
+    let end = Date().addingTimeInterval(seconds)
+    while Date() < end {
+        if let v = probe() { return v }
+        usleep(40_000)
+    }
+    return nil
+}
+
+func posixMode(_ path: String) -> Int { ((try? fm.attributesOfItem(atPath: path))?[.posixPermissions] as? NSNumber)?.intValue ?? -1 }
+
+print("the server end to end (mock mode): security gates")
+do {
+    let tmp = URL(fileURLWithPath: realPath(tempDir().deletingLastPathComponent())).appendingPathComponent("charness-e2e-\(UUID().uuidString)")
+    temps.append(tmp)
+    let proj = tmp.appendingPathComponent("proj").path
+    try fm.createDirectory(atPath: proj, withIntermediateDirectories: true)
+    let echo = try Net.serve { s in _ = Net.sendAll(s, Array("hello-from-echo".utf8)); Net.finish(s) }
+    defer { echo.stop() }
+    var cfg = ServerConfig(environment: ["HARNESS_ALLOW_HOSTS": "127.0.0.1:\(echo.port)"])
+    cfg.home = tmp.appendingPathComponent("home"); cfg.port = 0; cfg.mock = true
+    let server = try CharnessServer(config: cfg)
+    try server.start()
+    defer { server.stop() }
+    let port = server.port, base = "http://127.0.0.1:\(port)"
+
+    check("no cookie → 401", httpRequest(port, "GET", "/api/state").status == 401)
+    check("wrong Host header (DNS rebinding) → 403", httpRequest(port, "GET", "/api/state", host: "evil.com:\(port)").status == 403)
+    check("bad token → 401", httpRequest(port, "GET", "/?token=nope").status == 401)
+    let login = httpRequest(port, "GET", "/?token=\(server.token)")
+    let setCookie = login.headers["set-cookie"] ?? ""
+    check("good token → strict HttpOnly cookie", login.status == 204 && setCookie.contains("HttpOnly; SameSite=Strict"))
+    let cookie = String(setCookie.split(separator: ";").first ?? "")
+    let jsonHeaders = [("Cookie", cookie), ("X-Harness", "1"), ("Origin", base), ("Content-Type", "application/json")]
+    func call(_ method: String, _ path: String, _ body: JSONValue? = nil, headers: [(String, String)]? = nil) -> (status: Int, json: JSONValue) {
+        let r = httpRequest(port, method, path, headers: headers ?? jsonHeaders, body: body.map { Array($0.jsonString().utf8) } ?? [])
+        return (r.status, (try? JSONValue.parse(r.body)) ?? .null)
+    }
+    check("POST with foreign Origin → 403", call("POST", "/api/projects", ["path": .string(proj)],
+                                                 headers: [("Cookie", cookie), ("X-Harness", "1"), ("Origin", "http://evil.com")]).status == 403)
+    check("POST without X-Harness header → 403", call("POST", "/api/projects", ["path": .string(proj)],
+                                                       headers: [("Cookie", cookie), ("Origin", base)]).status == 403)
+    let page = httpRequest(port, "GET", "/", headers: [("Cookie", cookie)])
+    check("no web pages are served; replies carry a strict CSP and nosniff",
+          page.status == 404 && httpRequest(port, "GET", "/app.js", headers: [("Cookie", cookie)]).status == 404
+          && page.headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
+          && page.headers["x-content-type-options"] == "nosniff")
+
+    // the live-event feed, as the app gets it
+    let frames = LineLog()
+    let feedClient = APIClient(port: port)
+    try feedClient.login(token: server.token)
+    let feed = EventStream(client: feedClient, onEvent: { ev in if let o = ev.objectValue { frames.add(o) } }, onConnection: { _ in })
+    feed.start()
+    defer { feed.stop() }
+
+    print("the server end to end: threads & permissions")
+    func state() -> JSONObject { call("GET", "/api/state").json.objectValue ?? JSONObject() }
+    func thread(_ id: String) -> JSONObject { call("GET", "/api/threads/\(id)").json.objectValue ?? JSONObject() }
+    func firstPerm(_ threadId: String? = nil) -> JSONObject? {
+        (state()["perms"]?.arrayValue ?? []).compactMap(\.objectValue).first { threadId == nil || $0["threadId"]?.stringValue == threadId }
+    }
+    func idle(_ id: String, atLeast n: Int) -> JSONObject? {
+        let r = thread(id)
+        return r["thread"]?.objectValue?["busy"] != true && (r["messages"]?.arrayValue?.count ?? 0) >= n ? r : nil
+    }
+    func messages(_ r: JSONObject?) -> [JSONObject] { (r?["messages"]?.arrayValue ?? []).compactMap(\.objectValue) }
+    func blocks(_ m: JSONObject?) -> [JSONObject] { (m?["blocks"]?.arrayValue ?? []).compactMap(\.objectValue) }
+
+    check("rejects non-folder", call("POST", "/api/projects", ["path": .string(tmp.appendingPathComponent("missing").path)]).status == 400)
+    let p = call("POST", "/api/projects", ["path": .string(proj)]).json.text("id")
+    let t = call("POST", "/api/threads", ["projectId": .string(p)]).json.text("id")
+    _ = call("PATCH", "/api/threads/\(t)", ["mode": "ask"])
+    check("a message is accepted (202)", call("POST", "/api/threads/\(t)/send", ["text": "hello there"]).status == 202)
+    let perm = waitFor { firstPerm() }
+    check("Bash permission request raised", perm?["tool"] == "Bash")
+    let live = thread(t)["activity"]?.objectValue
+    check("live activity: \"waiting for approval\" with the step running",
+          live?["now"]?.stringValue?.hasPrefix("Waiting for your approval: Bash") == true
+          && (live?["steps"]?.arrayValue ?? []).contains { $0.objectValue?["text"] == "Bash: ls -la" && $0.objectValue?["status"] == "running" })
+    check("approving answers 200", call("POST", "/api/permissions/\(perm?["id"]?.stringValue ?? "")", ["allow": true]).status == 200)
+    let done = waitFor(10) { idle(t, atLeast: 2) }
+    let asst = messages(done).first { $0["role"] == "assistant" }
+    let tool = blocks(asst).first { $0["type"] == "tool" }
+    check("streamed text + approved tool + result + cost recorded",
+          blocks(asst).contains { $0["type"] == "text" && ($0["text"]?.stringValue ?? "").contains("Mock mode") }
+          && tool?["status"] == "ok" && (tool?["output"]?.stringValue ?? "").contains("hello.txt")
+          && (asst?["done"]?.objectValue?["cost"]?.doubleValue ?? 0) > 0)
+    check("thread auto-titled", done?["thread"]?.objectValue?["title"] == "hello there")
+    _ = waitFor { frames.all.contains { $0["type"] == "busy" && $0["threadId"]?.stringValue == t && $0["busy"] == false } ? true : nil }
+    let acts = frames.all.filter { $0["type"] == "activity" && $0["threadId"]?.stringValue == t }.compactMap { $0["activity"]?.objectValue }
+    let nows = Set(acts.compactMap { $0["now"]?.stringValue })
+    check("live activity: thinking, writing, the running command, sub-agent steps",
+          ["Thinking…", "Writing…", "Bash: ls -la", "↳ Glob: **/*"].allSatisfy(nows.contains))
+    let lastSteps = (acts.last?["steps"]?.arrayValue ?? []).compactMap(\.objectValue).map {
+        "\($0["sub"] == true ? "↳ " : "")\($0["text"]?.stringValue ?? "") \($0["status"]?.stringValue ?? "")"
+    }
+    check("live activity: steps ticked off, cleared when done, sub-agent steps not saved",
+          acts.last?["now"] == .null
+          && lastSteps == ["Bash: ls -la ok", "Task: Look around the project ok", "↳ Glob: **/* ok", "↳ Read: \(proj)/hello.txt ok"]
+          && thread(t)["activity"] == .null && !JSONValue.array((done?["messages"]?.arrayValue ?? [])).jsonString().contains("**/*"))
+
+    _ = call("POST", "/api/threads/\(t)/send", ["text": "edit something"])
+    let perm2 = waitFor { firstPerm() }
+    _ = call("POST", "/api/permissions/\(perm2?["id"]?.stringValue ?? "")", ["allow": false])
+    let done2 = waitFor(10) { idle(t, atLeast: 4) }
+    check("denied tool is marked denied and Claude is told",
+          perm2?["tool"] == "Edit" && blocks(messages(done2).last).first { $0["type"] == "tool" }?["status"] == "denied")
+
+    _ = call("PATCH", "/api/threads/\(t)", ["mode": "plan"])
+    check("\"full access\" mode is refused unless explicitly enabled", call("PATCH", "/api/threads/\(t)", ["mode": "full"]).status == 400)
+
+    _ = call("PATCH", "/api/threads/\(t)", ["mode": "commands"])
+    let permsBefore = frames.all.filter { $0["type"] == "perm" }.count
+    let before = messages(thread(t)).count
+    _ = call("POST", "/api/threads/\(t)/send", ["text": "hello there"])
+    let doneCmd = waitFor(10) { idle(t, atLeast: before + 2) }
+    check("\"auto-accept edits & commands\": a command runs without asking",
+          blocks(messages(doneCmd).last).first { $0["type"] == "tool" }?["status"] == "ok"
+          && frames.all.filter { $0["type"] == "perm" }.count == permsBefore)
+    _ = call("POST", "/api/threads/\(t)/send", ["text": "edit something"])
+    let permCmd = waitFor { firstPerm() }
+    check("… while other tools still ask", permCmd?["tool"] == "Edit")
+    _ = call("POST", "/api/permissions/\(permCmd?["id"]?.stringValue ?? "")", ["allow": false])
+    _ = waitFor(10) { idle(t, atLeast: 0) }
+
+    _ = call("PATCH", "/api/threads/\(t)", ["mode": "ask"])
+    _ = call("POST", "/api/threads/\(t)/send", ["text": "stop me"])
+    _ = waitFor { firstPerm() }
+    _ = call("POST", "/api/threads/\(t)/stop")
+    _ = waitFor(10) { idle(t, atLeast: 0) }
+    check("stop cancels run and clears pending prompt", (state()["perms"]?.arrayValue ?? [1]).isEmpty)
+
+    usleep(700_000)
+    let home = tmp.appendingPathComponent("home").path
+    check("thread saved to disk, files are chmod 600",
+          ((try? fm.contentsOfDirectory(atPath: home + "/threads")) ?? []).contains("\(t).json") && posixMode(home + "/state.json") == 0o600)
+
+    print("the server end to end: attachments")
+    let t2 = call("POST", "/api/threads", ["projectId": .string(p)]).json.text("id")
+    _ = call("PATCH", "/api/threads/\(t2)", ["mode": "ask"])
+    func upload(_ name: String, _ bytes: [UInt8], origin: String? = nil) -> (status: Int, json: JSONValue) {
+        let enc = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-_.!~*'()"))) ?? name
+        let r = httpRequest(port, "POST", "/api/threads/\(t2)/files", headers: [("Cookie", cookie), ("X-Harness", "1"), ("Origin", origin ?? base),
+                                                                               ("Content-Type", "application/octet-stream"), ("X-File-Name", enc)], body: bytes)
+        return (r.status, (try? JSONValue.parse(r.body)) ?? .null)
+    }
+    let png: [UInt8] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52]
+    let up1 = upload("notes.txt", Array("hello from a file".utf8)).json
+    check("files upload (text and binary, duplicate names numbered)",
+          up1 == ["name": "notes.txt", "size": 17] && upload("notes.txt", Array("again".utf8)).json.text("name") == "notes (2).txt"
+          && upload("foto ñ.png", png).json == ["name": "foto ñ.png", "size": .number(Double(png.count))])
+    let updir = home + "/uploads/" + t2
+    check("names cleaned (no ../, no hidden files), folder 700, files 600",
+          upload("../../../evil.txt", [120]).json.text("name") == "evil.txt" && upload(".env", [120]).json.text("name") == "env"
+          && ((try? fm.contentsOfDirectory(atPath: updir)) ?? []).sorted() == ["env", "evil.txt", "foto ñ.png", "notes (2).txt", "notes.txt"]
+          && posixMode(updir) == 0o700 && posixMode(updir + "/notes.txt") == 0o600)
+    check("foreign origin, files over 25 MB and unknown or ../ names refused",
+          upload("x.txt", [120], origin: "http://evil.com").status == 403
+          && upload("big.bin", [UInt8](repeating: 0, count: 25 * 1024 * 1024 + 1)).status == 413
+          && call("POST", "/api/threads/\(t2)/send", ["text": "hi", "files": ["../state.json"]]).status == 400
+          && call("POST", "/api/threads/\(t2)/send", ["text": "hi", "files": ["missing.txt"]]).status == 400)
+    let sentFiles = call("POST", "/api/threads/\(t2)/send", ["text": "", "files": ["notes.txt", "foto ñ.png"]]).status
+    let perm3 = waitFor { firstPerm(t2) }
+    _ = call("POST", "/api/permissions/\(perm3?["id"]?.stringValue ?? "")", ["allow": true])
+    let done3 = waitFor(10) { idle(t2, atLeast: 2) }
+    let first = messages(done3).first
+    let expected: JSONValue = ["role": "user", "text": "", "files": [["name": "notes.txt", "size": 17], ["name": "foto ñ.png", "size": .number(Double(png.count))]],
+                               "ts": first?["ts"] ?? .null]
+    check("a message with only files is sent; files saved with it; thread named after the file",
+          sentFiles == 202 && first.map(JSONValue.object) == expected && done3?["thread"]?.objectValue?["title"] == "notes.txt"
+          && (blocks(messages(done3).dropFirst().first).first?["text"]?.stringValue ?? "").contains("Attached files"))
+    check("deleting the thread deletes its files", call("DELETE", "/api/threads/\(t2)").status == 200 && !fm.fileExists(atPath: updir))
+
+    print("the server end to end: git (hardened)")
+    check("non-repo handled", call("GET", "/api/threads/\(t)/diff").json.objectValue?["isRepo"] == false)
+
+    print("the server end to end: egress guard")
+    check("the guard is on", state()["guard"]?.objectValue?["on"] == true && server.guardPort != nil)
+    func tunnel(_ host: String, _ p: Int) -> String {
+        guard let gp = server.guardPort, let s = Net.connect(host: "127.0.0.1", port: gp) else { return "" }
+        defer { _ = close(s) }
+        Net.setReceiveTimeout(s, 2)
+        _ = Net.sendAll(s, Array("CONNECT \(host):\(p) HTTP/1.1\r\nHost: \(host):\(p)\r\n\r\n".utf8))
+        var got = "", poked = false
+        while let chunk = Net.receive(s) {
+            got += String(decoding: chunk, as: UTF8.self)
+            if !poked && got.contains("\r\n\r\n") && got.hasPrefix("HTTP/1.1 200") { poked = true; _ = Net.sendAll(s, [120]) }
+        }
+        return got
+    }
+    check("unlisted host refused", tunnel("telemetry.example.com", 443).contains("403"))
+    check("allowed host on wrong port refused", tunnel("api.anthropic.com", 8443).contains("403"))
+    let through = tunnel("127.0.0.1", echo.port)
+    check("allow-listed host tunnels through", through.hasPrefix("HTTP/1.1 200 Connection Established") && through.contains("hello-from-echo"))
+    check("blocked attempt is logged", (state()["guard"]?.objectValue?["log"]?.arrayValue ?? []).contains {
+        $0.objectValue?["host"] == "telemetry.example.com" && $0.objectValue?["allowed"] != true })
+    check("the app can add a host to the allow-list", call("POST", "/api/net/allow", ["host": "telemetry.example.com"]).status == 200
+          && (state()["guard"]?.objectValue?["allow"]?.arrayValue ?? []).contains("telemetry.example.com"))
+} catch {
+    check("the server end to end (threw: \(error))", false)
+}
+
 // MARK: - Markdown (native screens)
 
-print("Markdown gives the same structure as public/md.js")
+print("Markdown gives the same structure the web UI's md.js did")
 do {
-    /// [tag, {attrs}, ...kids] as make-markdown-fixtures.mjs writes md.js's DOM (adjacent text merged, empty text dropped)
+    /// [tag, {attrs}, ...kids] as md.js's DOM was recorded (adjacent text merged, empty text dropped)
     func el(_ tag: String, _ attrs: JSONObject = JSONObject(), _ kids: [JSONValue]) -> JSONValue {
         var out: [JSONValue] = [.string(tag), .object(attrs)]
         for k in kids {

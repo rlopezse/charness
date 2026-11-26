@@ -1,8 +1,8 @@
-// The Charness server (ported from server.mjs, the retired Node version, and checked against it before it
-// was retired: same replies, live events and files). Same /api, same auth (token -> strict HttpOnly cookie, Host
-// and Origin checks, X-Harness header), same security headers and live-event feed, so the web UI in public/
-// runs on it. Built from Store, ClaudeTurn and MockClaude, Reducer (twin of public/reduce.js), EgressGuard and
-// Uploads. Charness.app runs it in-process; charness-server runs it in a terminal; test/smoke.mjs tests it.
+// The Charness server that Charness.app runs in-process, on loopback only; the native screens talk to it through
+// Client.swift. Ported from server.mjs (the retired Node version) and checked against it before it was retired.
+// /api only (no web pages): token -> strict HttpOnly cookie, Host and Origin checks and an X-Harness header on
+// every change, so other programs and web pages on the Mac can't drive it. Built from Store, ClaudeTurn and
+// MockClaude, Reducer, EgressGuard and Uploads. `core-checks` tests it end to end in mock mode.
 
 import Foundation
 #if canImport(Darwin)
@@ -12,8 +12,6 @@ import Glibc
 #endif
 
 public struct ServerConfig {
-    /// The repository folder: the UI is read from public/, the bundled claude binary from node_modules/.
-    public var root: URL
     public var home: URL
     public var port = 4317
     public var mock = false
@@ -21,11 +19,10 @@ public struct ServerConfig {
     public var rotateToken = false
     /// The environment the server works from (the child's is an allow-listed slice of it).
     public var environment: [String: String]
-    /// The claude binary; nil = HARNESS_CLAUDE_BIN, else the one bundled with the Agent SDK, else `claude` on PATH.
+    /// The claude binary (Charness.app passes the one in its bundle); nil = HARNESS_CLAUDE_BIN, else `claude` on PATH.
     public var claudeExecutable: String?
 
-    public init(root: URL, environment: [String: String] = ProcessInfo.processInfo.environment) {
-        self.root = root
+    public init(environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.environment = environment
         self.home = Store.defaultHome(environment: environment)
         if let p = environment["PORT"], let n = Int(p) { port = n }
@@ -41,7 +38,6 @@ public final class CharnessServer: @unchecked Sendable {
     public private(set) var token = ""
     public private(set) var port = 0
     public var guardPort: Int? { egress?.port }
-    public var link: String { "http://127.0.0.1:\(port)/?token=\(token)" }
 
     private struct Mode {
         let id: String
@@ -76,7 +72,6 @@ public final class CharnessServer: @unchecked Sendable {
     private var http: HTTPServer?
     private var egress: EgressGuard?
     private var pinger: DispatchSourceTimer?
-    private var staticFiles: [String: (type: String, body: [UInt8])] = [:]
     private var clients: [HTTPResponse] = []
     private var netLog: [JSONValue] = []
     private var runs: [String: Run] = [:]
@@ -84,7 +79,7 @@ public final class CharnessServer: @unchecked Sendable {
     private var pending: [String: Pending] = [:]
 
     static let securityHeaders: [(String, String)] = [
-        ("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"),
+        ("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"),
         ("X-Content-Type-Options", "nosniff"),
         ("Referrer-Policy", "no-referrer"),
         ("Cross-Origin-Resource-Policy", "same-origin"),
@@ -106,15 +101,6 @@ public final class CharnessServer: @unchecked Sendable {
             m.append(Mode(id: "full", label: "Full access (no prompts)", sdk: "bypassPermissions"))
         }
         modes = m
-        for (url, file, type) in [("/", "index.html", "text/html; charset=utf-8"), ("/app.js", "app.js", "text/javascript; charset=utf-8"),
-                                  ("/md.js", "md.js", "text/javascript; charset=utf-8"), ("/reduce.js", "reduce.js", "text/javascript; charset=utf-8"),
-                                  ("/style.css", "style.css", "text/css; charset=utf-8")] {
-            let path = config.root.appendingPathComponent("public/\(file)")
-            guard let data = FileManager.default.contents(atPath: path.path) else {
-                throw StoreError.unreadable(path: path.path, reason: "the web UI file is missing")
-            }
-            staticFiles[url] = (type, Array(data))
-        }
         token = try loadToken()
     }
 
@@ -244,7 +230,7 @@ public final class CharnessServer: @unchecked Sendable {
 
     // MARK: runs
 
-    /// Folds one event into the thread, saves, and sends it to the browser (emit() in sendMessage()).
+    /// Folds one event into the thread, saves, and sends it to the app (emit() in sendMessage()).
     private func emit(_ threadId: String, _ ev: JSONValue) {
         var e = ev.objectValue ?? JSONObject()
         if e["ts"] == nil || e["ts"] == .null { e["ts"] = .number(nowMs()) }
@@ -264,17 +250,6 @@ public final class CharnessServer: @unchecked Sendable {
     private func claudeExecutable() -> String? {
         if let c = config.claudeExecutable { return c }
         if let c = config.environment["HARNESS_CLAUDE_BIN"], !c.isEmpty { return c }
-        var u = utsname()
-        uname(&u)
-        let machine = withUnsafeBytes(of: &u.machine) { String(decoding: $0.prefix(while: { $0 != 0 }), as: UTF8.self) }
-        #if os(macOS)
-        let os = "darwin"
-        #else
-        let os = "linux"
-        #endif
-        let arch = machine == "x86_64" ? "x64" : "arm64"
-        let bundled = config.root.appendingPathComponent("node_modules/@anthropic-ai/claude-agent-sdk-\(os)-\(arch)/claude").path
-        if FileManager.default.isExecutableFile(atPath: bundled) { return bundled }
         return ClaudeLaunch.which("claude", path: config.environment["PATH"])
     }
 
@@ -333,7 +308,7 @@ public final class CharnessServer: @unchecked Sendable {
 
         Thread.detachNewThread { [weak self] in
             if missingClaude {
-                self?.q.sync { self?.emit(id, ["t": "error", "text": "Claude Code was not found. Run `npm install` in the Charness folder, or set HARNESS_CLAUDE_BIN to your claude binary."]) }
+                self?.q.sync { self?.emit(id, ["t": "error", "text": "Claude Code was not found. Rebuild the app with scripts/make-mac-app.sh (it puts Claude Code inside), or set HARNESS_CLAUDE_BIN to your claude binary."]) }
             } else {
                 turn.run()
             }
@@ -461,34 +436,26 @@ public final class CharnessServer: @unchecked Sendable {
         let path = req.path
         let method = req.method
 
-        // 2) First visit with ?token=… → set a strict cookie and drop the token from the URL.
+        // 2) Login: the token (which only the app knows) is traded for a strict cookie.
         if method == "GET" && path == "/", let t = req.query("token") {
             guard tokenOk(t) else { return fail(401, "bad token") }
-            return res.send(302, [("Set-Cookie", "hk=\(token); HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000"), ("Location", "/")])
+            return res.send(204, [("Set-Cookie", "hk=\(token); HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000")])
         }
 
         // 3) Everything else needs the cookie.
-        guard tokenOk(cookie(req, "hk")) else {
-            return res.send(401, [("Content-Type", "text/plain; charset=utf-8")],
-                            Array("Not authorised. Open the full URL printed in the terminal (it contains ?token=…).\n".utf8))
-        }
+        guard tokenOk(cookie(req, "hk")) else { return fail(401, "not authorised") }
 
-        // 4) State-changing requests must come from our own page.
+        // 4) State-changing requests must carry our Origin and header (a web page can't send both).
         if method != "GET" && method != "HEAD" {
             guard req.headers["origin"] == "http://\(host)" else { return fail(403, "bad origin") }
             guard req.headers["x-harness"] == "1" else { return fail(403, "missing header") }
         }
 
-        if method == "GET", let f = staticFiles[path] {
-            return res.send(200, [("Content-Type", f.type), ("Cache-Control", "no-store")], f.body)
-        }
-        if method == "GET" && path == "/favicon.ico" { return res.send(204) }
-
         if method == "GET" && path == "/api/events" {
             guard res.startStream(200, [("Content-Type", "text/event-stream"), ("Cache-Control", "no-store")]) else { return }
             res.write(": hello\n\n")
             q.sync { clients.append(res) }
-            while Net.receive(res.fd) != nil {}   // until the browser goes away
+            while Net.receive(res.fd) != nil {}   // until the app disconnects
             q.sync { clients.removeAll { $0 === res } }
             return
         }

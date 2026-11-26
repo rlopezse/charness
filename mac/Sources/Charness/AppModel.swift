@@ -1,5 +1,5 @@
 // The native screens' model: owns the API client and the live-event feed (CharnessCore/Client.swift, tested in
-// core-checks) and does what public/app.js does with them — refreshState, openThread, send, approvals — plus
+// core-checks) and does what the retired web UI (app.js) did with them — refreshState, openThread, send, approvals — plus
 // the UI-only state (drawer, collapsed projects, attachments, toast). The views in this folder only draw it.
 
 #if canImport(SwiftUI) && canImport(AppKit)

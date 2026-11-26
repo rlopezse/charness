@@ -1,9 +1,7 @@
-// Swift port of apply() in public/reduce.js: folds one agent event into a thread's list of messages.
-// The server uses it to save threads; the browser uses the JavaScript original to show them live. While both
-// exist they must agree exactly, so this mirrors the JS line by line, including JavaScript details that show
-// in the saved file (key order, fields missing from an event are left out, string concatenation rules).
-// `swift run core-checks` replays mac/Fixtures/reducer.json (made by the JS version) and requires
-// byte-identical results.
+// Folds one agent event into a thread's list of messages. The server uses it to save threads and the app's
+// screens to show them live (ClientState). A port of apply() in the retired web UI's reduce.js, kept
+// byte-compatible with the threads it saved (key order, fields missing from an event left out, string
+// concatenation rules): `swift run core-checks` replays mac/Fixtures/reducer.json, recorded from the JavaScript.
 //
 // Messages:
 //   {role:'user', text, files?: [{name, size}], ts}
