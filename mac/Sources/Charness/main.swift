@@ -10,6 +10,7 @@
 #if canImport(AppKit) && canImport(SwiftUI)
 import AppKit
 import SwiftUI
+import Combine
 import CharnessCore
 
 /// Getting the server going, done off the main thread.
@@ -75,20 +76,60 @@ enum Startup {
     }
 }
 
-/// Shown while the server starts.
-struct StartingView: View {
+/// The launch screen: the app's icon, gently pulsing, until the first screen's data has loaded.
+struct SplashView: View {
+    @State private var pulse = false
+
     var body: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-            Text("Starting Charness…").foregroundColor(.secondary)
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: 128, height: 128)
+            .scaleEffect(pulse ? 1.0 : 0.94)
+            .opacity(pulse ? 1.0 : 0.7)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
+            }
+            .accessibilityLabel("Starting Charness")
+    }
+}
+
+/// Filled in by the app delegate once the server is running; `launched` follows the model's.
+@MainActor
+final class Launch: ObservableObject {
+    @Published private(set) var model: AppModel?
+    @Published private(set) var launched = false
+    private var watch: AnyCancellable?
+
+    func set(_ m: AppModel) {
+        model = m
+        watch = m.$launched.sink { [weak self] in self?.launched = $0 }
+    }
+}
+
+/// The window's one and only content: the launch screen until the model has loaded everything the first screen
+/// shows, then the UI, faded in. (One launch screen throughout, so its animation never restarts.)
+struct AppShell: View {
+    @ObservedObject var launch: Launch
+
+    var body: some View {
+        ZStack {
+            if launch.launched, let model = launch.model {
+                RootView(model: model).transition(.opacity)
+            } else {
+                SplashView().transition(.opacity)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeOut(duration: 0.3), value: launch.launched)
     }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var window: NSWindow!
+    private let launch = Launch()
     private var model: AppModel?
     private var server: CharnessServer?
     private var quitting = false
@@ -164,9 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             server = s
             let m = AppModel(port: s.port, token: s.token)
             model = m
-            let hosting = NSHostingController(rootView: RootView(model: m))
-            hosting.sceneBridgingOptions = [.toolbars, .title]   // SwiftUI's toolbar and title go to this window
-            setContent(hosting)
+            launch.set(m)
             m.start()
         }
     }
@@ -191,20 +230,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 760, height: 480)
         window.toolbarStyle = .unified
-        setContent(NSHostingController(rootView: StartingView()))
+        let hosting = NSHostingController(rootView: AppShell(launch: launch))
+        hosting.sizingOptions = []                              // the window keeps its own size
+        hosting.sceneBridgingOptions = [.toolbars, .title]      // SwiftUI's toolbar and title go to this window
+        window.contentViewController = hosting
+        window.setContentSize(NSSize(width: 1240, height: 820))
         window.center()
         window.setFrameAutosaveName("CharnessMainWindow")
         window.makeKeyAndOrderFront(nil)
-    }
-
-    /// Swaps what the window shows, keeping its size and place (a hosting controller would resize the window to
-    /// its own size otherwise).
-    private func setContent<V: View>(_ hosting: NSHostingController<V>) {
-        let frame = window.frame
-        hosting.sizingOptions = []
-        window.toolbar = nil
-        window.contentViewController = hosting
-        window.setFrame(frame, display: true)
     }
 
     // MARK: menu actions

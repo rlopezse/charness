@@ -63,6 +63,9 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var s = ClientState()
     @Published private(set) var ready = false
+    /// Everything the first screen needs has loaded (projects, threads, the last open thread): the launch screen
+    /// gives way to the UI. Also set after 15 s whatever happens, so a hang never leaves the launch screen up.
+    @Published private(set) var launched = false
     @Published var drawer: DrawerTab?
     @Published var collapsed = Set<String>()
     /// The thread highlighted in the sidebar; set at once on a click, before the thread has loaded.
@@ -121,11 +124,16 @@ final class AppModel: ObservableObject {
 
     func start() {
         let api = self.api, token = self.token
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 15_000_000_000)
+            self?.launched = true
+        }
         background({ () -> JSONValue in
             try api.login(token: token)
             return try api.request("GET", "/api/state")
         }, failed: { [weak self] e in
             self?.ready = true
+            self?.launched = true
             self?.showToast("\(e)")
         }) { [weak self] state in
             guard let self else { return }
@@ -133,7 +141,7 @@ final class AppModel: ObservableObject {
             ready = true
             let last = UserDefaults.standard.string(forKey: "CharnessLastThread")
             let pick = s.threads.first { $0.id == last } ?? s.threads.max { $0.updatedAt < $1.updatedAt }
-            if let pick { openThread(pick.id) }
+            if let pick { openThread(pick.id, then: { [weak self] in self?.launched = true }) } else { launched = true }
             startStream()
         }
     }
@@ -207,14 +215,17 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func openThread(_ id: String, keepScroll: Bool = false) {
+    /// Loads a thread; `then` runs once it has loaded (or failed to).
+    func openThread(_ id: String, keepScroll: Bool = false, then: (@MainActor () -> Void)? = nil) {
         selection = id
         let api = self.api
         background({ try api.request("GET", "/api/threads/\(id)") }, failed: { [weak self] e in
+            defer { then?() }
             guard let self else { return }
             if selection == id { selection = s.current?.thread.id }   // don't stay on "Loading…"
             showToast("\(e)")
         }) { [weak self] v in
+            defer { then?() }
             guard let self else { return }
             let switching = s.current?.thread.id != id
             s.applyThread(v)
