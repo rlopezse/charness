@@ -5,8 +5,10 @@
 //
 // Messages:
 //   {role:'user', text, files?: [{name, size}], ts}
-//   {role:'assistant', blocks:[{type:'text', text} | {type:'tool', id, name, input, status, output?}], done?}
+//   {role:'assistant', blocks:[{type:'text', text} | {type:'tool', id, name, input, status, output?, ts?}], done?}
+//     (a tool's ts, when it started, is Swift only; reduce.js didn't keep it)
 //   {role:'system', text}
+//   {role:'system', kind:'compact', text}   (Swift only: where Claude Code replaced the history with a summary)
 
 public enum Reducer {
     /// Applies one event to `msgs`. Returns the index of the message that changed, or -1 if none did.
@@ -67,6 +69,7 @@ public enum Reducer {
                             if let v = e["name"] { b["name"] = v }
                             if let v = e["input"] { b["input"] = v }
                             b["status"] = "running"
+                            if let v = e["ts"] { b["ts"] = v }   // Swift only: when it started (the work log shows it)
                             blocks.append(.object(b))
                         }
                     }
@@ -96,6 +99,10 @@ public enum Reducer {
             msgs[msgs.count - 1].modifyObject { m in m["done"] = .object(done) }
             return msgs.count - 1
 
+        case .string("compacted"):
+            msgs.append(["role": "system", "kind": "compact", "text": .string(compactNote(e))])
+            return msgs.count - 1
+
         case .string("error"):
             var m: JSONObject = ["role": "system"]
             if let v = e["text"] { m["text"] = v }
@@ -105,6 +112,17 @@ public enum Reducer {
         default:
             return -1
         }
+    }
+
+    /// The note left in a thread where it was compacted.
+    public static func compactNote(_ e: JSONObject) -> String {
+        var size = ""
+        if let n = e["preTokens"]?.doubleValue, n > 0 {
+            size = n >= 1000 ? " (it was about \(Int((n / 1000).rounded()))k tokens)" : " (it was \(Int(n)) tokens)"
+        }
+        return e["trigger"]?.stringValue == "auto"
+            ? "Conversation compacted automatically\(size). Claude continues from a summary of what came before."
+            : "Conversation compacted\(size). Claude continues from a summary of what came before."
     }
 
     // The last message if it is the assistant's, else a new empty assistant message (asst() in the JS).

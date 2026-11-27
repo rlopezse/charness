@@ -179,6 +179,8 @@ public enum ChatMessage {
     case user(text: String, files: [(name: String, size: Int)])
     case assistant(blocks: [ChatBlock], done: (cost: Double?, turns: Double?, ms: Double?)?)
     case system(text: String)
+    /// Where Claude Code replaced the history with a summary.
+    case compacted(text: String)
 
     public init(_ v: JSONValue) {
         let m = v.objectValue ?? JSONObject()
@@ -195,14 +197,14 @@ public enum ChatMessage {
                 if o["type"] == "text" { return .text(JS.string(o["text"])) }
                 if o["type"] == "tool" {
                     return .tool(ToolCall(id: JS.string(o["id"]), name: JS.string(o["name"]), input: o["input"] ?? .object(JSONObject()),
-                                          status: JS.string(o["status"]), output: o["output"]?.stringValue))
+                                          status: JS.string(o["status"]), output: o["output"]?.stringValue, at: o["ts"]?.doubleValue))
                 }
                 return nil
             }
             let d = m["done"]?.objectValue
             self = .assistant(blocks: blocks, done: d.map { ($0["cost"]?.doubleValue, $0["turns"]?.doubleValue, $0["ms"]?.doubleValue) })
         default:
-            self = .system(text: JS.string(m["text"]))
+            self = m["kind"]?.stringValue == "compact" ? .compacted(text: JS.string(m["text"])) : .system(text: JS.string(m["text"]))
         }
     }
 }
@@ -218,10 +220,107 @@ public struct ToolCall: Equatable {
     public let input: JSONValue
     public let status: String   // running | ok | error | denied
     public let output: String?
+    /// When it started (ms since 1970); missing in threads saved before Charness kept it.
+    public var at: Double? = nil
+
+    public init(id: String, name: String, input: JSONValue, status: String, output: String?, at: Double? = nil) {
+        self.id = id
+        self.name = name
+        self.input = input
+        self.status = status
+        self.output = output
+        self.at = at
+    }
     /// A field of the input as text, the way the web UI prints it (`i.command ?? ''`).
     public func field(_ key: String) -> String { JS.string(input.objectValue?[key]) }
-    /// The one-line summary shown on the card (toolSummary()).
+    /// The one-line summary of the input (toolSummary()): the command, the file, the pattern.
     public var summary: String { toolSummary(name, input) }
+    /// What the tool did, in plain words, as the conversation shows it (toolTitle()).
+    public var title: String { toolTitle(name, input) }
+}
+
+/// A reply laid out as T3 Code's work log: everything up to its last tool call (the steps, and what Claude said
+/// between them) is the `work`, folded under "Working for 12s" while it runs and "Worked for 5.3s" after; the text
+/// after it is the `answer`. A reply that used no tools is all `answer`. Tool calls in a row are a group under one
+/// summary ("Ran 2 commands, read 3 files"); a lone call is just its own row.
+public struct ReplyLayout: Equatable {
+    public enum Item: Equatable {
+        case text(String)
+        case tool(ToolCall)
+        case group(title: String, calls: [ToolCall])
+
+        public var isStep: Bool { if case .text = self { return false } else { return true } }
+    }
+
+    public var work: [Item]
+    public var answer: [Item]
+
+    public init(_ blocks: [ChatBlock]) {
+        let lastTool = blocks.lastIndex { if case .tool = $0 { return true } else { return false } }
+        if let lastTool {
+            work = ReplyLayout.items(blocks[...lastTool])
+            answer = ReplyLayout.items(blocks[(lastTool + 1)...])
+        } else {
+            work = []
+            answer = ReplyLayout.items(blocks[...])
+        }
+    }
+
+    static func items(_ blocks: ArraySlice<ChatBlock>) -> [Item] {
+        var out: [Item] = []
+        var run: [ToolCall] = []
+        func flush() {
+            if run.count == 1 { out.append(.tool(run[0])) }
+            else if run.count > 1 { out.append(.group(title: ClientText.toolsSummary(run.map(\.name)), calls: run)) }
+            run = []
+        }
+        for b in blocks {
+            switch b {
+            case .tool(let c): run.append(c)
+            case .text(let t):
+                flush()
+                if !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { out.append(.text(t)) }
+            }
+        }
+        flush()
+        return out
+    }
+}
+
+/// What a tool call did, in plain words, as the Claude app shows it: Claude Code's own description of a command
+/// ("List files in the project"), "Read Package.swift", "Edited main.swift"… The exact command or input is in
+/// the card when it's opened.
+public func toolTitle(_ name: String, _ input: JSONValue?) -> String {
+    let i = input?.objectValue ?? JSONObject()
+    func line(_ t: String) -> String {
+        let first = t.split(separator: "\n", omittingEmptySubsequences: false).first.map(String.init) ?? ""
+        let trimmed = first.trimmingCharacters(in: .whitespaces)
+        return JS.utf16Count(trimmed) > 120 ? JS.prefix(trimmed, 119) + "…" : trimmed
+    }
+    func text(_ k: String) -> String { line(JS.string(i[k])) }
+    func file(_ k: String) -> String { (JS.string(i[k]) as NSString).lastPathComponent }
+    func or(_ s: String, _ fallback: String) -> String { s.isEmpty ? fallback : s }
+    switch name {
+    case "Bash": return or(text("description"), "Ran a command")
+    case "BashOutput": return "Checked a command's output"
+    case "KillShell": return "Stopped a command"
+    case "Read": return "Read \(or(file("file_path"), "a file"))"
+    case "Edit", "MultiEdit": return "Edited \(or(file("file_path"), "a file"))"
+    case "Write": return "Wrote \(or(file("file_path"), "a file"))"
+    case "NotebookEdit": return "Edited \(or(file("notebook_path"), "a notebook"))"
+    case "Glob": return text("pattern").isEmpty ? "Listed files" : "Found files matching \(text("pattern"))"
+    case "Grep": return text("pattern").isEmpty ? "Searched the code" : "Searched for “\(text("pattern"))”"
+    case "WebFetch":
+        let url = JS.string(i["url"])
+        return "Read \(or(URL(string: url)?.host ?? "", or(line(url), "a web page")))"
+    case "WebSearch": return text("query").isEmpty ? "Searched the web" : "Searched the web for “\(text("query"))”"
+    case "Task", "Agent": return text("description").isEmpty ? "Ran an agent" : "Agent: \(text("description"))"
+    case "TodoWrite": return "Updated the to-do list"
+    case "ExitPlanMode": return "Proposed a plan"
+    default:
+        let summary = toolSummary(name, input)
+        return summary.isEmpty ? name : "\(name): \(summary)"
+    }
 }
 
 /// A permission prompt waiting for the user (the server's `perm` objects).
@@ -393,6 +492,44 @@ public enum ClientText {
         }
     }
 
+    /// The mode's name as the bar under the message box shows it; the menu shows the full label.
+    public static func modeShort(_ mode: String) -> String {
+        switch mode {
+        case "ask": return "Ask first"
+        case "edits": return "Auto edits"
+        case "commands": return "Auto commands"
+        case "plan": return "Plan only"
+        case "full": return "Full access"
+        default: return mode
+        }
+    }
+
+    /// Text broken into lines of at most `width` characters at spaces (a word longer than that keeps its own line),
+    /// for the descriptions under menu items, which macOS doesn't wrap.
+    public static func wrap(_ text: String, width: Int) -> String {
+        var lines: [String] = []
+        var line = ""
+        for word in text.split(separator: " ") {
+            if !line.isEmpty && line.count + 1 + word.count > width {
+                lines.append(line)
+                line = ""
+            }
+            line += (line.isEmpty ? "" : " ") + word
+        }
+        if !line.isEmpty { lines.append(line) }
+        return lines.joined(separator: "\n")
+    }
+
+    /// One line under each model in the model menu.
+    public static func modelBlurb(_ id: String) -> String {
+        if id.isEmpty { return "Whatever Claude Code picks by default" }
+        if id.contains("fable") { return "The most capable, for the hardest problems" }
+        if id.contains("opus") { return "For complex work and everyday tasks" }
+        if id.contains("sonnet") { return "Fast and capable for most tasks" }
+        if id.contains("haiku") { return "The fastest, for quick, simple tasks" }
+        return ""
+    }
+
     public static func fileSize(_ n: Int) -> String {
         if n < 1024 { return "\(n) B" }
         if n < 1024 * 1024 { return String(format: "%.1f KB", Double(n) / 1024) }
@@ -410,6 +547,54 @@ public enum ClientText {
     public static func elapsed(since: Double, now: Double = Date().timeIntervalSince1970 * 1000) -> String {
         let sec = max(0, Int((now - since) / 1000))
         return sec < 60 ? "\(sec)s" : "\(sec / 60)m \(sec % 60)s"
+    }
+
+    /// A group of tool calls in a few words, kinds in the order they first came: "Ran 2 commands, read 3 files".
+    public static func toolsSummary(_ names: [String]) -> String {
+        func kind(_ n: String) -> String {
+            switch n {
+            case "Bash", "BashOutput", "KillShell": return "command"
+            case "Read": return "read"
+            case "Edit", "MultiEdit", "Write", "NotebookEdit": return "edit"
+            case "Grep", "Glob": return "search"
+            case "WebFetch": return "page"
+            case "WebSearch": return "websearch"
+            case "Task", "Agent": return "agent"
+            case "TodoWrite": return "todo"
+            default: return "other"
+            }
+        }
+        var order: [String] = []
+        var counts: [String: Int] = [:]
+        for n in names {
+            let k = kind(n)
+            if counts[k] == nil { order.append(k) }
+            counts[k, default: 0] += 1
+        }
+        let parts = order.map { k -> String in
+            let n = counts[k] ?? 0
+            switch k {
+            case "command": return n == 1 ? "ran a command" : "ran \(n) commands"
+            case "read": return n == 1 ? "read a file" : "read \(n) files"
+            case "edit": return n == 1 ? "edited a file" : "edited \(n) files"
+            case "search": return n == 1 ? "searched the code" : "searched the code \(n) times"
+            case "page": return n == 1 ? "read a web page" : "read \(n) web pages"
+            case "websearch": return n == 1 ? "searched the web" : "searched the web \(n) times"
+            case "agent": return n == 1 ? "ran an agent" : "ran \(n) agents"
+            case "todo": return "updated the to-do list"
+            default: return n == 1 ? "used a tool" : "used \(n) tools"
+            }
+        }
+        let text = parts.joined(separator: ", ")
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
+    /// The header of a finished reply's folded steps: "Worked for 5.3s", "Worked for 2m 14s".
+    public static func workedFor(_ ms: Double?) -> String {
+        guard let ms, ms > 0 else { return "Worked" }
+        if ms < 60_000 { return String(format: "Worked for %.1fs", ms / 1000) }
+        let sec = Int((ms / 1000).rounded())
+        return sec < 3600 ? "Worked for \(sec / 60)m \(sec % 60)s" : "Worked for \(sec / 3600)h \(sec % 3600 / 60)m"
     }
 
     /// "$0.0042 · 2 turns · 1.2s" under a finished answer.

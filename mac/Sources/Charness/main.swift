@@ -88,7 +88,7 @@ struct SplashView: View {
             .scaleEffect(pulse ? 1.0 : 0.94)
             .opacity(pulse ? 1.0 : 0.7)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(Theme.chat)
             .onAppear {
                 withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
             }
@@ -142,7 +142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         buildWindow()
         NSApp.activate(ignoringOtherApps: true)
 
-        let others = otherCopies()
+        // A run with its own data folder (HARNESS_HOME, like the "Charness Mock" scheme in Xcode) can't clash
+        let others = ProcessInfo.processInfo.environment["HARNESS_HOME"] == nil ? otherCopies() : []
         guard !others.isEmpty else { return startServer() }
         // Two copies (say an older build somewhere else) would run two servers on the same data (~/.charness).
         let alert = NSAlert()

@@ -117,6 +117,10 @@ done
   Xcode). 128 checks: the store, the reducer, the egress guard, Claude Code turns against a strict stand-in
   (the checks program plays it itself), the app's client, Markdown, and the server end to end in mock mode.
   The SwiftUI screens themselves are only built and tried on a Mac.
+* **Xcode, for quick UI changes:** `open mac/Package.swift`, pick the **Charness Mock** scheme and ⌘R. It runs
+  the app with the mock Claude (no key, no cost) and its own throwaway data in `/tmp/charness-dev`, next to your
+  installed Charness. Edit a view, ⌘R again. (The plain **Charness** scheme uses your real data and needs
+  `HARNESS_CLAUDE_BIN` pointing at a Claude Code, e.g. `mac/.build/claude-code/claude` after one app build.)
 * **The real Claude Code in a terminal:** `swift run --package-path mac claude-spike "your prompt"` runs one turn,
   asking approvals there (Ctrl-C stops it; no egress guard; `--mock` for the mock).
 * Everything but the window builds and runs on Linux too; the app itself (AppKit, SwiftUI, the Keychain,
