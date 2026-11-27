@@ -347,6 +347,22 @@ final class AppModel: ObservableObject {
     func removeAttachment(_ a: Attachment) { attachments.removeAll { $0.id == a.id } }
 
     /// Send (or Stop while Claude works), as onSendClick() in app.js.
+    /// Whether the open thread has a conversation Claude Code could compact.
+    var canCompact: Bool {
+        guard let t = s.current?.thread else { return false }
+        return !(t.sessionId ?? "").isEmpty && !s.busy.contains(t.id) && uploading == nil
+    }
+
+    /// Has Claude Code replace the thread's history with a summary (its /compact command), so the messages after
+    /// it send much less context. The draft and attachments are left alone.
+    func compact() {
+        guard canCompact, let tid = s.current?.thread.id else { return }
+        let api = self.api
+        scrollRequest += 1
+        background({ try api.request("POST", "/api/threads/\(tid)/send", ["text": "/compact"]) },
+                   failed: { [weak self] e in self?.showToast("\(e)") }) { _ in }
+    }
+
     func sendOrStop() {
         guard let t = s.current?.thread, uploading == nil else { return }
         let api = self.api, tid = t.id

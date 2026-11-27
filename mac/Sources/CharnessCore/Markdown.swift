@@ -21,12 +21,16 @@ public indirect enum MDInline: Equatable {
 public struct MDList: Equatable {
     public var ordered: Bool
     public var items: [MDItem]
+    /// The first number of an ordered list ("3." starts at 3), as GitHub and T3 Code show it.
+    public var start: Int = 1
 }
 
 public struct MDItem: Equatable {
     public var text: [MDInline]
     /// Lists nested under this item.
     public var lists: [MDList]
+    /// A task-list item ("- [ ] todo", "- [x] done"): false or true; nil for an ordinary item.
+    public var task: Bool? = nil
 }
 
 public indirect enum MDBlock: Equatable {
@@ -44,7 +48,7 @@ public indirect enum MDBlock: Equatable {
 
 public enum Markdown {
     // the same expressions as md.js (\d and \w spelled out: JavaScript's are ASCII only)
-    private static let inlineRE = re("(`[^`\\n]+`|\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|\\*[^*\\s][^*\\n]*\\*|~~[^~\\n]+~~|\\[[^\\]\\n]+\\]\\([^)\\s]+\\)|https?://[^\\s<>\"'`]+)")
+    private static let inlineRE = re("(`[^`\\n]+`|\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|(?<![A-Za-z0-9_])_[^_\\s][^_\\n]*?(?<!\\s)_(?![A-Za-z0-9_])|\\*[^*\\s][^*\\n]*\\*|~~[^~\\n]+~~|\\[[^\\]\\n]+\\]\\([^)\\s]+\\)|https?://[^\\s<>\"'`]+)")
     private static let bareURL = re("https?://[^\\s<>\"'`]+")
     private static let wholeURL = re("^https?://[^\\s<>\"'`]+$")
     private static let hostRE = re("^https?://[^/?#]")
@@ -127,6 +131,7 @@ public enum Markdown {
                 out.append(test(wholeURL, u) && trimURL(u) == u && hasHost(u) ? .link(url: u, [.code(u)]) : .code(u))
             }
             else if tok.hasPrefix("**") || tok.hasPrefix("__") { out.append(.strong(inline(inner(2)))) }
+            else if tok.hasPrefix("_") { out.append(.em(inline(inner(1)))) }
             else if tok.hasPrefix("~~") { out.append(.del(inline(inner(2)))) }
             else if tok.hasPrefix("*") { out.append(.em(inline(inner(1)))) }
             else if tok.hasPrefix("http") {
@@ -155,24 +160,36 @@ public enum Markdown {
 
     private static func isBlockStart(_ l: String) -> Bool { test(blockStart, l) || test(listRE, l) }
 
-    private final class ListNode { let ordered: Bool; var items: [ItemNode] = []; init(_ o: Bool) { ordered = o } }
+    private final class ListNode {
+        let ordered: Bool
+        let start: Int
+        var items: [ItemNode] = []
+        init(_ o: Bool, start: Int) { ordered = o; self.start = start }
+    }
     private final class ItemNode { let text: String; var lists: [ListNode] = []; init(_ t: String) { text = t } }
 
     /// md.js buildList(): items by indentation into nested lists.
-    private static func buildLists(_ items: [(indent: Int, ordered: Bool, text: String)]) -> [MDList] {
+    private static let taskRE = re("^\\[([ xX])\\]\\s+(.*)$")
+
+    private static func buildLists(_ items: [(indent: Int, ordered: Bool, text: String, number: Int)]) -> [MDList] {
         var roots: [ListNode] = []
         var stack: [(indent: Int, list: ListNode)] = []
         for it in items {
             while let top = stack.last, it.indent < top.indent { stack.removeLast() }
             if stack.isEmpty || it.indent > stack[stack.count - 1].indent {
-                let list = ListNode(it.ordered)
+                let list = ListNode(it.ordered, start: it.ordered ? it.number : 1)
                 if let top = stack.last { top.list.items.last?.lists.append(list) } else { roots.append(list) }
                 stack.append((it.indent, list))
             }
             stack[stack.count - 1].list.items.append(ItemNode(it.text))
         }
         func freeze(_ l: ListNode) -> MDList {
-            MDList(ordered: l.ordered, items: l.items.map { MDItem(text: inline($0.text), lists: $0.lists.map(freeze)) })
+            MDList(ordered: l.ordered, items: l.items.map { item in
+                if let t = match(taskRE, item.text) {
+                    return MDItem(text: inline(t[2]), lists: item.lists.map(freeze), task: t[1] != " ")
+                }
+                return MDItem(text: inline(item.text), lists: item.lists.map(freeze))
+            }, start: l.start)
         }
         return roots.map(freeze)
     }
@@ -223,11 +240,12 @@ public enum Markdown {
             }
 
             if test(listRE, line) {
-                var items: [(indent: Int, ordered: Bool, text: String)] = []
+                var items: [(indent: Int, ordered: Bool, text: String, number: Int)] = []
                 while i < lines.count {
                     if let lm = match(listRE, lines[i]) {
+                        let digits = lm[2].filter(\.isNumber)
                         items.append((lm[1].replacingOccurrences(of: "\t", with: "    ").utf16.count,
-                                      lm[2].unicodeScalars.contains { ("0"..."9").contains($0) }, lm[3]))
+                                      !digits.isEmpty, lm[3], Int(digits.prefix(9)) ?? 1))
                         i += 1
                     } else if test(continuation, lines[i]) && !items.isEmpty && !isBlockStart(lines[i]) {
                         items[items.count - 1].text += " " + lines[i].trimmingCharacters(in: .whitespacesAndNewlines)

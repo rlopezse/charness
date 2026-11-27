@@ -18,6 +18,9 @@ struct RootView: View {
         } detail: {
             DetailView(model: model)
         }
+        .font(Theme.font(Theme.uiSize))
+        .foregroundStyle(Theme.text)
+        .tint(Theme.accent)
         .overlay(alignment: .bottom) {
             if let t = model.toast {
                 Text(t)
@@ -48,11 +51,9 @@ struct SidebarView: View {
     @State private var newTitle = ""
 
     var body: some View {
-        List(selection: Binding(get: { model.selection }, set: { id in
-            if let id, id != model.s.current?.thread.id { model.openThread(id) }
-        })) {
+        List {
             if model.ready && model.s.projects.isEmpty {
-                Text("No projects yet").foregroundStyle(.secondary)
+                Text("No projects yet").foregroundStyle(Theme.secondaryText)
             }
             ForEach(model.s.projects, id: \.id) { p in
                 Section(isExpanded: Binding(get: { !model.collapsed.contains(p.id) }, set: { open in
@@ -60,11 +61,13 @@ struct SidebarView: View {
                 })) {
                     let threads = model.s.threads(of: p.id)
                     if threads.isEmpty {
-                        Text("No threads yet").foregroundStyle(.tertiary)
+                        Text("No threads yet").font(Theme.font(12)).foregroundStyle(Theme.secondaryText)
                     }
                     ForEach(threads, id: \.id) { t in
-                        ThreadRow(model: model, thread: t)
-                            .tag(t.id)
+                        ThreadRow(model: model, thread: t, active: model.selection == t.id)
+                            .onTapGesture { if t.id != model.s.current?.thread.id { model.openThread(t.id) } }
+                            .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
+                            .listRowBackground(Color.clear)
                             .contextMenu {
                                 Button("Rename…") { newTitle = t.title; renaming = t }
                                 Divider()
@@ -85,6 +88,8 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(Theme.sidebar)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         .dropDestination(for: URL.self) { urls, _ in
             let folders = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
@@ -152,7 +157,7 @@ struct SidebarView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
         }
-        .background(.bar)
+        .background(Theme.sidebar)
     }
 }
 
@@ -164,6 +169,8 @@ struct ProjectHeader: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(project.name)
+                .font(Theme.font(12, weight: .semibold))
+                .foregroundStyle(Theme.secondaryText)
                 .help(project.path)
             Spacer(minLength: 4)
             Button(action: onNewThread) { Image(systemName: "square.and.pencil") }
@@ -178,12 +185,18 @@ struct ProjectHeader: View {
 struct ThreadRow: View {
     @ObservedObject var model: AppModel
     let thread: ChatThread
+    let active: Bool
+    @State private var hovering = false
 
     var body: some View {
         let needs = model.s.needsApproval(thread.id)
         let busy = model.s.busy.contains(thread.id)
         HStack(spacing: 6) {
-            Text(thread.title).lineLimit(1).truncationMode(.tail)
+            Text(thread.title)
+                .font(Theme.font(Theme.sidebarSize))
+                .foregroundStyle(Theme.text)
+                .lineLimit(1)
+                .truncationMode(.tail)
             Spacer(minLength: 4)
             if needs {
                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange).help("Waiting for your approval")
@@ -191,6 +204,14 @@ struct ThreadRow: View {
                 ProgressView().controlSize(.mini).help("Running")
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(active ? Theme.selection : hovering ? Theme.selection.opacity(0.55) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
     }
 }
 
@@ -218,6 +239,8 @@ struct DetailView: View {
                 ComposerView(model: model)
             }
         }
+        .background(Theme.chat)
+        .toolbarBackground(Theme.chat, for: .windowToolbar)
         .navigationTitle(t?.title ?? "Charness")
         .navigationSubtitle(subtitle)
         .toolbar {
@@ -254,6 +277,9 @@ struct DetailView: View {
     }
 }
 
+/// The message box, laid out like the Claude app's: a rounded field with the send key inside it, and under it a
+/// "+" menu on the left and the thread's model and permission mode on the right, each a quiet button that opens a
+/// small menu.
 struct ComposerView: View {
     @ObservedObject var model: AppModel
     @State private var height: CGFloat = 34
@@ -261,7 +287,7 @@ struct ComposerView: View {
     var body: some View {
         let t = model.s.current?.thread
         let busy = model.isBusy
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             if !model.attachments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -272,86 +298,250 @@ struct ComposerView: View {
                     .padding(.horizontal, 2)
                 }
             }
-            HStack(alignment: .bottom, spacing: 4) {
-                Button { model.pickFiles() } label: {
-                    Image(systemName: "paperclip").font(.system(size: 15)).frame(width: 28, height: 30)
-                }
-                .buttonStyle(.borderless)
-                .help("Attach files (or drop them here)")
-                .disabled(t == nil || busy || model.uploading != nil)
-
+            HStack(alignment: .bottom, spacing: 6) {
                 ZStack(alignment: .topLeading) {
                     ComposerTextView(text: $model.draft, height: $height, enabled: t != nil,
                                      focusRequest: model.focusRequest, onSend: { model.sendOrStop() })
                     if model.draft.isEmpty {
-                        Text(t == nil ? "Loading…" : "Message Claude")
-                            .foregroundStyle(.tertiary)
+                        Text(t == nil ? "Loading…" : "Ask Charness")
+                            .font(Theme.font(Theme.userSize))
+                            .foregroundStyle(Theme.secondaryText)
                             .padding(.leading, 9)
-                            .padding(.top, 7)
+                            .padding(.top, 8)
                             .allowsHitTesting(false)
                     }
                 }
                 .frame(height: height)
-
-                if busy {
-                    Button { model.sendOrStop() } label: {
-                        Image(systemName: "stop.circle.fill").font(.system(size: 22)).foregroundStyle(.red)
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Stop")
-                    .frame(width: 30, height: 30)
-                } else if model.uploading != nil {
-                    ProgressView().controlSize(.small).frame(width: 30, height: 30)
-                } else {
-                    Button { model.sendOrStop() } label: {
-                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 22))
-                            .foregroundStyle(model.canSend ? Color.accentColor : Color.secondary.opacity(0.5))
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Send (Return) · new line: Shift-Return")
-                    .disabled(!model.canSend)
-                    .frame(width: 30, height: 30)
-                }
+                sendKey(busy: busy)
             }
-            .padding(5)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(nsColor: .separatorColor)))
+            .padding(.leading, 8)
+            .padding(.trailing, 10)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.chat))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.border))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
 
-            if let t {
-                HStack(spacing: 8) {
-                    Picker("Model", selection: Binding(get: { t.model }, set: { model.patchThread(["model": .string($0)]) })) {
-                        ForEach(model.s.models, id: \.id) { o in Text(o.label).tag(o.id) }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize()
-                    .help("Model for this thread")
-                    Picker("Mode", selection: Binding(get: { t.mode }, set: { model.patchThread(["mode": .string($0)]) })) {
-                        ForEach(model.s.modes, id: \.id) { o in Text(o.label).tag(o.id) }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize()
-                    .help(ClientText.modeHint(t.mode))
-                    if t.mode == "full" { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red) }
-                    if t.mode == "commands" { Image(systemName: "terminal.fill").foregroundStyle(.orange) }
-                    Text(model.uploading ?? ClientText.modeHint(t.mode))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .foregroundStyle(t.mode == "full" ? Color.red : t.mode == "commands" ? Color.orange : Color.secondary)
-                    Spacer(minLength: 8)
-                    if t.cost != 0 { Text(String(format: "$%.4f so far", t.cost)).monospacedDigit().foregroundStyle(.secondary) }
+            if let t { bar(t, busy: busy) }
+        }
+        .frame(maxWidth: Theme.columnWidth)
+        .padding(.horizontal, 32)
+        .padding(.top, 6)
+        .padding(.bottom, 14)
+        .frame(maxWidth: .infinity)
+        // ⌘U attaches files, as in the Claude app
+        .background(Button("") { attach() }.keyboardShortcut("u", modifiers: .command).opacity(0))
+    }
+
+    /// Send (a return arrow) or, while Claude works, Stop.
+    @ViewBuilder private func sendKey(busy: Bool) -> some View {
+        Group {
+            if busy {
+                Button { model.sendOrStop() } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Theme.chat)
+                        .frame(width: 22, height: 22)
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.text))
                 }
-                .controlSize(.small)
-                .font(.caption)
-                .padding(.horizontal, 2)
+                .buttonStyle(.plain)
+                .help("Stop")
+            } else if model.uploading != nil {
+                ProgressView().controlSize(.small).frame(width: 22, height: 22)
+            } else {
+                Button { model.sendOrStop() } label: {
+                    Image(systemName: "return")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(model.canSend ? Theme.text : Theme.secondaryText.opacity(0.7))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Send (Return) · new line: Shift-Return")
+                .disabled(!model.canSend)
             }
         }
-        .frame(maxWidth: 820)
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
-        .padding(.bottom, 12)
-        .frame(maxWidth: .infinity)
+        .padding(.bottom, min(max((height - 22) / 2, 0), 6))   // centred on one line, at the bottom of several
+    }
+
+    /// Under the box: "+" on the left, what's going on in the middle, model and mode on the right.
+    private func bar(_ t: ChatThread, busy: Bool) -> some View {
+        let modelLabel = model.s.models.first(where: { $0.id == t.model })?.label ?? (t.model.isEmpty ? "Default" : t.model)
+        let modeTint: Color = t.mode == "full" ? .red : t.mode == "commands" ? .orange : Theme.text
+        return HStack(spacing: 4) {
+            BarButton(help: "Attach files", menu: {
+                var items: [NativeMenu.Entry] = [
+                    .item(title: "Attach files…", icon: "paperclip", key: "u", enabled: !busy && model.uploading == nil, action: { attach() }),
+                ]
+                items.append(.item(title: "Compact conversation",
+                                   subtitle: ClientText.wrap("Replace the history with a summary, so each message sends less", width: 44),
+                                   icon: "rectangle.compress.vertical", enabled: model.canCompact, action: { model.compact() }))
+                items.append(.separator)
+                if let path = projectPath(t), !path.isEmpty {
+                    items.append(.item(title: "Show project in Finder", icon: "folder", action: {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                    }))
+                }
+                return items
+            }) {
+                Image(systemName: "plus").font(.system(size: 14, weight: .regular)).frame(width: 12)
+            }
+
+            Spacer(minLength: 8)
+            if let up = model.uploading {
+                Text(up).lineLimit(1).foregroundStyle(Theme.secondaryText)
+            }
+            Spacer(minLength: 8)
+
+            BarButton(help: "Model for this thread", menu: {
+                model.s.models.map { o -> NativeMenu.Entry in
+                    .item(title: o.label, subtitle: ClientText.wrap(ClientText.modelBlurb(o.id), width: 44), checked: o.id == t.model,
+                          action: { model.patchThread(["model": .string(o.id)]) })
+                }
+            }) {
+                Text(modelLabel)
+            }
+
+            BarButton(help: ClientText.modeHint(t.mode), menu: {
+                [NativeMenu.Entry.header("Permission mode")] + model.s.modes.map { o -> NativeMenu.Entry in
+                    .item(title: o.label, subtitle: ClientText.wrap(ClientText.modeHint(o.id), width: 44),
+                          checked: o.id == t.mode, warn: o.id == "full",
+                          action: { model.patchThread(["mode": .string(o.id)]) })
+                }
+            }) {
+                HStack(spacing: 4) {
+                    if t.mode == "full" { Image(systemName: "exclamationmark.triangle.fill") }
+                    Text(ClientText.modeShort(t.mode))
+                }
+                .foregroundStyle(modeTint)
+            }
+        }
+        .font(Theme.font(Theme.uiSize))
+        .foregroundStyle(Theme.text)
+        .padding(.horizontal, 2)
+    }
+
+    private func attach() {
+        guard model.s.current != nil, !model.isBusy, model.uploading == nil else { return }
+        model.pickFiles()
+    }
+
+    private func projectPath(_ t: ChatThread) -> String? {
+        model.s.projects.first(where: { $0.id == t.projectId })?.path
+    }
+}
+
+/// A quiet button in the bar under the message box: plain text, a gray pill on hover. Clicking it opens a native
+/// menu just above it.
+struct BarButton<Content: View>: View {
+    let help: String
+    let menu: () -> [NativeMenu.Entry]
+    @ViewBuilder let content: () -> Content
+    @State private var hover = false
+    @State private var anchor = MenuAnchor.Box()
+
+    var body: some View {
+        Button { NativeMenu.show(menu(), above: anchor.view) } label: {
+            content()
+                .padding(.horizontal, 7)
+                .frame(minHeight: 24)
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hover ? Theme.selection : Color.clear))
+                .background(MenuAnchor(box: anchor))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .onHover { hover = $0 }
+        .help(help)
+    }
+}
+
+/// An empty AppKit view behind a button, so a native menu can be placed against it.
+struct MenuAnchor: NSViewRepresentable {
+    final class Box { weak var view: NSView? }
+    let box: Box
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        box.view = v
+        return v
+    }
+    func updateNSView(_ v: NSView, context: Context) { box.view = v }
+}
+
+/// A native macOS menu, as the Claude app's are, opened just above a button.
+@MainActor
+enum NativeMenu {
+    enum Entry {
+        case header(String)
+        case separator
+        case item(title: String, subtitle: String = "", icon: String? = nil, checked: Bool = false, key: String = "",
+                  enabled: Bool = true, warn: Bool = false, action: () -> Void)
+    }
+
+    private final class Target: NSObject {
+        let actions: [() -> Void]
+        init(_ actions: [() -> Void]) { self.actions = actions }
+        @objc func run(_ sender: NSMenuItem) {
+            if actions.indices.contains(sender.tag) { actions[sender.tag]() }
+        }
+    }
+    /// Menu items hold their target weakly; this keeps the last menu's alive.
+    private static var target: Target?
+
+    static func show(_ entries: [Entry], above view: NSView?) {
+        guard let view else { return }
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        var actions: [() -> Void] = []
+        for e in entries {
+            switch e {
+            case .header(let title):
+                menu.addItem(.sectionHeader(title: title))
+            case .separator:
+                menu.addItem(.separator())
+            case .item(let title, let subtitle, let icon, let checked, let key, let enabled, let warn, let action):
+                let item = NSMenuItem(title: title, action: #selector(Target.run(_:)), keyEquivalent: key)
+                if !key.isEmpty { item.keyEquivalentModifierMask = .command }
+                item.tag = actions.count
+                actions.append(action)
+                item.state = checked ? .on : .off
+                item.isEnabled = enabled
+                if let icon { item.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil) }
+                style(item, title: title, subtitle: subtitle, warn: warn)
+                menu.addItem(item)
+            }
+        }
+        let t = Target(actions)
+        target = t
+        for item in menu.items where item.action != nil { item.target = t }
+        // The menu opens at a point on the screen, not "in" the button's view: given a view, AppKit asks it for the
+        // menu's accessibility parent, and SwiftUI answers by building the accessibility tree of the whole window
+        // (every text in the conversation), which made each menu's first opening take seconds.
+        guard let window = view.window else { return }
+        let top = view.convert(NSPoint(x: 0, y: view.isFlipped ? 0 : view.bounds.height), to: nil)
+        let screenTop = window.convertPoint(toScreen: top)
+        // the menu's top-left corner goes here: just above the button, so the menu sits over it
+        let gap: CGFloat = 6
+        menu.popUp(positioning: nil, at: NSPoint(x: screenTop.x - 4, y: screenTop.y + menu.size.height + gap), in: nil)
+    }
+
+    /// A description under the title (macOS 14.4 has a place for it; before that it's a second, smaller line),
+    /// and red for a risky choice.
+    private static func style(_ item: NSMenuItem, title: String, subtitle: String, warn: Bool) {
+        let font = NSFont.menuFont(ofSize: 0)
+        if #available(macOS 14.4, *) {
+            if !subtitle.isEmpty { item.subtitle = subtitle }
+            if warn { item.attributedTitle = NSAttributedString(string: title, attributes: [.font: font, .foregroundColor: NSColor.systemRed]) }
+            return
+        }
+        guard !subtitle.isEmpty || warn else { return }
+        let s = NSMutableAttributedString(string: title, attributes: [.font: font, .foregroundColor: warn ? NSColor.systemRed : NSColor.labelColor])
+        if !subtitle.isEmpty {
+            s.append(NSAttributedString(string: "\n" + subtitle, attributes: [
+                .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ]))
+        }
+        item.attributedTitle = s
     }
 }
 
@@ -378,7 +568,9 @@ struct ComposerTextView: NSViewRepresentable {
         tv.importsGraphics = false
         tv.allowsUndo = true
         tv.drawsBackground = false
-        tv.font = NSFont.systemFont(ofSize: 14)
+        tv.font = Theme.nsFont(Theme.userSize)
+        tv.textColor = Theme.nsText
+        tv.insertionPointColor = Theme.nsText
         tv.textContainerInset = NSSize(width: 4, height: 7)
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.isAutomaticDashSubstitutionEnabled = false

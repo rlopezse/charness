@@ -143,6 +143,14 @@ public final class MockClaude: ClaudeBackend, @unchecked Sendable {
         let sid = resume ?? "mock-\(String(Int(Date().timeIntervalSince1970 * 1000), radix: 36))"
         yield(["type": "system", "subtype": "init", "session_id": .string(sid), "model": .string(model.flatMap { $0.isEmpty ? nil : $0 } ?? "mock-model")])
 
+        if prompt.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("/compact") {
+            yield(["type": "system", "subtype": "status", "status": "compacting"])
+            sleep(400)
+            yield(["type": "system", "subtype": "compact_boundary", "compact_metadata": ["trigger": "manual", "pre_tokens": 48200]])
+            yield(["type": "result", "subtype": "success", "is_error": false, "result": "", "total_cost_usd": 0.001, "num_turns": 1, "duration_ms": 400, "session_id": .string(sid)])
+            return
+        }
+
         let msgId = "msg_\(MockClaude.randomId())"
         yield(["type": "stream_event", "parent_tool_use_id": nil, "event": ["type": "message_start", "message": ["id": .string(msgId)]]])
         yield(block("thinking"))

@@ -5,3 +5,7 @@
 .DS_Store
 mac/.build/
 node_modules/
+# Xcode's own files for the package (the shared "Charness Mock" scheme in .swiftpm/xcode/xcshareddata is kept)
+mac/.swiftpm/xcode/package.xcworkspace/
+mac/.swiftpm/xcode/xcuserdata/
+mac/.swiftpm/configuration/

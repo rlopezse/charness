@@ -312,6 +312,12 @@ public final class ClaudeTurn: @unchecked Sendable {
                 act.now("Thinking…")
             }
             if subtype == "status" && msg["status"]?.stringValue == "compacting" { act.now("Compacting the conversation…") }
+            if subtype == "compact_boundary" {   // the history was replaced by a summary (/compact, or automatically)
+                let meta = msg["compact_metadata"]?.objectValue
+                var ev: JSONObject = ["t": "compacted", "trigger": .string(JS.string(meta?["trigger"]).isEmpty ? "manual" : JS.string(meta?["trigger"]))]
+                if let n = meta?["pre_tokens"]?.doubleValue { ev["preTokens"] = .number(n) }
+                emit(.object(ev))
+            }
             if subtype == "api_retry" {
                 let status = JS.truthy(msg["error_status"]) ? " \(JS.string(msg["error_status"]))" : ""
                 act.now("Claude API error\(status), retrying (\(JS.string(msg["attempt"]))/\(JS.string(msg["max_retries"])))…")

@@ -677,12 +677,30 @@ do {
             let hasText = blocks.contains { if case .text(let x) = $0 { return !x.isEmpty }; return false }
             shapes.append("assistant:\(hasText):\(tools.joined(separator: ",")):\(done != nil)")
         case .system(let text): shapes.append("system:\(text)")
+        case .compacted(let text): shapes.append("compacted:\(text)")
         }
     }
     check("typed messages: the user's text and file, then an answer with text, tool cards and a done line",
           shapes.first == "user:hello there:\(name):4" && shapes.count == 2
           && shapes[1].hasPrefix("assistant:true:Bash/ok") && shapes[1].hasSuffix(":true"))
     check("the event types the client saw", box.with { b in ["state", "busy", "activity", "perm", "perm_done", "thread"].allSatisfy(b.seen.contains) })
+
+    check("each step keeps when it started (the work log shows the time)",
+          withState { st in st.messages.contains { m in
+              if case .assistant(let blocks, _) = m { return blocks.contains { b in if case .tool(let c) = b { return (c.at ?? 0) > 1_700_000_000_000 } else { return false } } }
+              return false
+          } })
+    let sid = withState { $0.current?.thread.sessionId }
+    try api.request("POST", "/api/threads/\(tid)/send", ["text": "/compact"])
+    check("/compact: Claude Code's compaction leaves a note in the thread, and the session carries on",
+          waitFor(10) { s in
+              guard !s.busy.contains(tid), case .compacted(let text)? = s.messages.last else { return false }
+              return text == "Conversation compacted (it was about 48k tokens). Claude continues from a summary of what came before."
+                  && s.current?.thread.sessionId == sid && sid != nil
+          })
+    check("an automatic compaction says so",
+          Reducer.compactNote(["trigger": "auto"]).hasPrefix("Conversation compacted automatically. ")
+          && Reducer.compactNote(["trigger": "manual", "preTokens": 900]).contains("(it was 900 tokens)"))
 
     try api.request("PATCH", "/api/threads/\(tid)", ["title": "Renamed"])
     check("a rename reaches the open thread through the feed", waitFor(5) { $0.current?.thread.title == "Renamed" })
@@ -738,6 +756,98 @@ do {
           && ClientText.doneLine(cost: 0, turns: 1, ms: nil) == "1 turn")
     check("first lines", ClientText.firstLines("a\nb\nc", 2) == "a\nb\n… (1 more lines)" && ClientText.firstLines("a\nb", 2) == "a\nb")
     check("mode hints", ClientText.modeHint("plan").hasPrefix("Read-only") && ClientText.modeHint("x") == "")
+    check("tool titles in plain words: a command by Claude Code's description of it, files by name",
+          toolTitle("Bash", ["command": "ls -la", "description": "List files in the project"]) == "List files in the project"
+          && toolTitle("Bash", ["command": "ls -la"]) == "Ran a command"
+          && toolTitle("Bash", ["command": "x", "description": "First line\nsecond"]) == "First line"
+          && toolTitle("Read", ["file_path": "/a/b/Package.swift"]) == "Read Package.swift"
+          && toolTitle("Edit", ["file_path": "/a/main.swift", "old_string": "x", "new_string": "y"]) == "Edited main.swift"
+          && toolTitle("Write", [:]) == "Wrote a file"
+          && toolTitle("Grep", ["pattern": "TODO", "path": "src"]) == "Searched for “TODO”"
+          && toolTitle("Glob", ["pattern": "**/*.swift"]) == "Found files matching **/*.swift"
+          && toolTitle("WebFetch", ["url": "https://docs.swift.org/x?y"]) == "Read docs.swift.org"
+          && toolTitle("Task", ["description": "Look around"]) == "Agent: Look around"
+          && toolTitle("SomeNewTool", ["query": "abc"]) == "SomeNewTool: abc" && toolTitle("SomeNewTool", nil) == "SomeNewTool")
+    check("short mode names and model blurbs for the menus under the message box",
+          ClientText.modeShort("commands") == "Auto commands" && ClientText.modeShort("ask") == "Ask first" && ClientText.modeShort("x") == "x"
+          && ClientText.modelBlurb("claude-opus-5-5").hasPrefix("For complex") && !ClientText.modelBlurb("").isEmpty
+          && ClientText.modelBlurb("claude-fable-5-2").hasPrefix("The most") && ClientText.modelBlurb("other") == "")
+    // syntax colors in code blocks
+    func kinds(_ code: String, _ lang: String) -> [String: SyntaxKind] {
+        var m: [String: SyntaxKind] = [:]
+        for t in Syntax.highlight(code, language: lang) where m[t.text] == nil { m[t.text] = t.kind }
+        return m
+    }
+    func joins(_ code: String, _ lang: String) -> Bool { Syntax.highlight(code, language: lang).map(\.text).joined() == code }
+    let samples: [(String, String)] = [
+        ("js", "const x = 'a'; // hi\nlet re = /ab+c/gi, n = a / b;\nconsole.log(`t ${x}`, new Map(), this.default)\n/* end"),
+        ("ts", "interface P { name: string; age?: number }\nexport const f = (p: P): void => {}"),
+        ("json", "{\"a\": 1, \"b\": [true, null, \"x\"]}"),
+        ("html", "<!DOCTYPE html>\n<a href=\"x\" data-y=z disabled>hi &amp; bye</a><!-- c -->\n<style>p { color: red; }</style><script>let a = 1 < 2</script><br/><img src='a'"),
+        ("css", "@media (max-width: 600px) { .btn:hover, #main > a[href] { margin: 0 -4px; color: #fff !important; width: calc(100% - 2em) } }"),
+        ("sql", "-- users\nCREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name VARCHAR(80) NOT NULL);\nSELECT u.name, COUNT(*) FROM users u WHERE u.id = $1 AND x::text = 'a''b' /* c"),
+    ]
+    check("syntax colors: every piece of code comes back exactly as it was, for each language",
+          samples.allSatisfy { joins($0.1, $0.0) } && joins("x", "rust") && Syntax.highlight("", language: "js").isEmpty)
+    var fuzzOK = true
+    let alphabet = Array("ab<>/=\"'`\\{}();:.#@!&*-+ \n\t1é$[]%?")
+    for _ in 0..<3000 {
+        var code = ""
+        for _ in 0..<Int.random(in: 0...40, using: &SeededRandom.shared) { code.append(alphabet.randomElement(using: &SeededRandom.shared)!) }
+        for lang in ["js", "ts", "json", "html", "css", "sql"] where !joins(code, lang) { fuzzOK = false; print("    lost text:", lang, code.debugDescription) }
+    }
+    check("syntax colors: random fragments (unclosed strings, tags, comments…) come back exactly too", fuzzOK)
+    let js = kinds("const x = 'a'; // hi\nfoo(1) + new Map(); let r = /ab+c/g; a / b; this.default", "js")
+    check("JavaScript: keywords, names, strings, comments, calls, numbers, types, regexes, division",
+          js["const"] == .keyword && js["x"] == .variable && js["'a'"] == .string && js["// hi"] == .comment
+          && js["foo"] == .function && js["1"] == .number && js["Map"] == .type && js["/ab+c/g"] == .regexp
+          && js["/"] == .operator && js["this"] == .special && js["default"] == .variable)
+    let ts = kinds("let n: number = f() => 1", "ts")
+    check("TypeScript: built-in types; => as a keyword", ts["number"] == .type && ts["=>"] == .keyword && kinds("let n: number", "js")["number"] == .variable)
+    let json = kinds("{\"a\": 1, \"b\": true}", "json")
+    check("JSON: keys, numbers, true / false / null", json["\"a\""] == .tag && json["1"] == .number && json["true"] == .operator)
+    let html = kinds("<a href=\"x\">hi &amp; bye</a><style>p { color: red; }</style><script>let a = 1</script>", "html")
+    check("HTML: tags, attributes, values, entities; the CSS and JavaScript inside <style> and <script>",
+          html["a"] == .tag && html["href"] == .attribute && html["\"x\""] == .string && html["&amp;"] == .tag
+          && html["p"] == .tag && html["color"] == .property && html["red"] == .value && html["let"] == .keyword && html["hi "] == .plain)
+    let css = kinds(".btn:hover > a { margin: 0 4px; color: #fff !important; } @media screen {}", "css")
+    check("CSS: selectors (class, pseudo, element), properties, values, numbers and units, colors, !important, at-rules",
+          css[".btn"] == .attribute && css[":hover"] == .operator && css["a"] == .tag && css["margin"] == .property
+          && css["4"] == .number && css["px"] == .tag && css["#fff"] == .operator && css["!important"] == .keyword
+          && css["@media"] == .keyword && css["screen"] == .value)
+    let sql = kinds("SELECT u.name, count(*) FROM users u WHERE id = :id AND deleted IS NULL; -- c\nCREATE TABLE t (n VARCHAR(80), d timestamp DEFAULT now())", "sql")
+    check("SQL: keywords in any case, types, functions, parameters, NULL, comments; names stay plain",
+          sql["SELECT"] == .keyword && sql["FROM"] == .keyword && sql["count"] == .function && sql[":id"] == .variable
+          && sql["NULL"] == .number && sql["-- c"] == .comment && sql["VARCHAR"] == .type && sql["timestamp"] == .type
+          && sql["DEFAULT"] == .keyword && sql["now"] == .function && sql[" users u "] == .plain && sql["name"] == .plain
+          && kinds("INSERT INTO t (a) VALUES (1)", "sql")["t"] == nil && kinds("CREATE TABLE t (a int)", "sql")["t"] == nil
+          && Syntax.language("PostgreSQL") == .sql)
+    check("code in other languages stays plain", Syntax.highlight("fn main() {}", language: "rust") == [SyntaxToken(text: "fn main() {}", kind: .plain)])
+    // the work log: "Worked for 5.3s", groups of steps
+    func call(_ id: String, _ name: String) -> ChatBlock { .tool(ToolCall(id: id, name: name, input: [:], status: "ok", output: nil)) }
+    let reply: [ChatBlock] = [.text("Let me look."), call("1", "Bash"), call("2", "Bash"), call("3", "Read"),
+                              .text("Found it."), call("4", "Edit"), .text("Done: fixed the bug.")]
+    let finished = ReplyLayout(reply)
+    check("a reply: the steps and what Claude said between them fold away; the text after the last step is the answer",
+          finished.work.count == 4 && finished.work[0] == .text("Let me look.") && finished.work[2] == .text("Found it.")
+          && finished.answer == [.text("Done: fixed the bug.")])
+    if case .group(let title, let calls)? = finished.work.dropFirst().first {
+        check("steps in a row are one group with a summary; a lone step is its own row",
+              title == "Ran 2 commands, read a file" && calls.map(\.id) == ["1", "2", "3"] && finished.work[3].isStep && !finished.work[2].isStep)
+    } else {
+        check("steps in a row are one group with a summary; a lone step is its own row", false)
+    }
+    check("a reply with no tools has nothing to fold; one still running folds what it did so far",
+          ReplyLayout([.text("hi")]).work.isEmpty && ReplyLayout([.text("hi")]).answer == [.text("hi")]
+          && ReplyLayout(Array(reply.prefix(3))).work.count == 2 && ReplyLayout(Array(reply.prefix(3))).answer.isEmpty)
+    check("group summaries and the Worked-for header",
+          ClientText.toolsSummary(["Grep", "Glob", "WebSearch", "Write", "Mystery"]) == "Searched the code 2 times, searched the web, edited a file, used a tool"
+          && ClientText.workedFor(5300) == "Worked for 5.3s" && ClientText.workedFor(134_000) == "Worked for 2m 14s"
+          && ClientText.workedFor(nil) == "Worked")
+    check("menu descriptions wrap at spaces",
+          ClientText.wrap("aaa bbb ccc", width: 7) == "aaa bbb\nccc" && ClientText.wrap("abcdefghij k", width: 4) == "abcdefghij\nk"
+          && ClientText.wrap("", width: 5) == "" && ClientText.wrap(ClientText.modeHint("commands"), width: 44).split(separator: "\n").allSatisfy { $0.count <= 44 })
+    check("long titles are cut to one line", toolTitle("Bash", ["description": .string(String(repeating: "a", count: 300))]).count == 120)
 }
 
 // MARK: - the server end to end (was test/smoke.mjs)
@@ -1029,6 +1139,26 @@ do {
         if got != o["tree"] { bad.append(o["name"]?.stringValue ?? "?"); print("      \(o["name"]!.stringValue!):\n        md.js \(o["tree"]!.jsonString())\n        Swift \(got.jsonString())") }
     }
     check("all \(samples.count) samples match md.js\(bad.isEmpty ? "" : " (not: \(bad.joined(separator: ", ")))")", samples.count >= 30 && bad.isEmpty)
+
+    // beyond md.js, as T3 Code (GitHub-flavored Markdown) shows replies
+    func firstList(_ src: String) -> MDList? {
+        if case .list(let l)? = Markdown.parse(src).first { return l }
+        return nil
+    }
+    let started = firstList("3. three\n4. four\n   1. nested one")
+    check("ordered lists keep their first number (nested ones too); unordered ones start at 1",
+          started?.start == 3 && started?.items.count == 2 && started?.items[1].lists.first?.start == 1
+          && firstList("7) seven")?.start == 7 && firstList("- a")?.start == 1 && firstList("10. ten")?.start == 10)
+    let tasks = firstList("- [ ] todo\n- [x] done\n- [X] also done\n- [] not a task\n- plain")
+    check("task lists: [ ] and [x] become unchecked / checked items, the brackets dropped",
+          tasks?.items.map(\.task) == [false, true, true, nil, nil]
+          && tasks?.items.map(\.text) == [[.text("todo")], [.text("done")], [.text("also done")], [.text("[] not a task")], [.text("plain")]])
+    check("_underscores_ are italic at word edges only (snake_case_names stay as they are)",
+          Markdown.inline("an _easy_ one") == [.text("an "), .em([.text("easy")]), .text(" one")]
+          && Markdown.inline("snake_case_name and file_a_b") == [.text("snake_case_name and file_a_b")]
+          && Markdown.inline("x_y_ z") == [.text("x_y_ z")]
+          && Markdown.inline("__bold__ and _ spaced _") == [.strong([.text("bold")]), .text(" and _ spaced _")]
+          && Markdown.inline("(_note_)") == [.text("("), .em([.text("note")]), .text(")")])
 } catch {
     check("Markdown samples (threw: \(error))", false)
 }
@@ -1071,3 +1201,18 @@ do {
 for t in temps { try? fm.removeItem(at: t) }
 print(failed == 0 ? "\nall \(passed) checks passed" : "\n\(failed) of \(passed + failed) checks FAILED")
 exit(failed == 0 ? 0 : 1)
+
+
+/// A repeatable random number generator (SplitMix64), so a failing random check fails the same way every run.
+struct SeededRandom: RandomNumberGenerator {
+    nonisolated(unsafe) static var shared = SeededRandom(seed: 42)
+    var state: UInt64
+    init(seed: UInt64) { state = seed }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E3779B97F4A7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+        z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+        return z ^ (z >> 31)
+    }
+}
